@@ -1,6 +1,7 @@
 #include "tensor.h"
 #include<iostream>
 #include<cassert>
+#include <algorithm>
 Tensor::Tensor(std::vector<int> shape){
     this->shape = shape;
     int total = 1;
@@ -73,6 +74,29 @@ Tensor matmul(const Tensor&a, const Tensor& b){
         for(int j = 0;j<shapec[1];j++){
             for(int k = 0;k<shapea[1];k++){
                 c.at({i,j}) += a.at({i,k})*b.at({k,j});
+            }
+        }
+    }
+    return c;
+}
+
+Tensor matmul_tiled(const Tensor& a, const Tensor& b){
+    int tile = 4;
+    assert(a.shape[1] == b.shape[0]);
+    int M = a.shape[0];
+    int N = b.shape[1];
+    int K = a.shape[1];
+    Tensor c({M,N});
+    for(int tile_i=0;tile_i<M;tile_i+=tile){
+        for(int tile_j=0;tile_j<N;tile_j+=tile){
+            for(int tile_k=0;tile_k<K;tile_k+=tile){
+                for(int i = tile_i ;i<std::min(tile_i+tile,M);i++){
+                    for(int j = tile_j;j<std::min(tile_j+tile,N);j++){
+                        for(int k = tile_k;k<std::min(tile_k+tile,K);k++){
+                            c.at({i,j}) += a.at({i,k}) * b.at({k,j});
+                        }
+                    }
+                }
             }
         }
     }

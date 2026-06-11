@@ -12,3 +12,4 @@ struct Tensor{
     void print();
 };
 Tensor matmul(const Tensor& a, const Tensor& b);
+Tensor matmul_tiled(const Tensor& a, const Tensor& b);

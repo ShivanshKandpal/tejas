@@ -105,3 +105,28 @@ Tensor matmul_tiled(const Tensor& a, const Tensor& b){
     }
     return c;
 }
+
+Tensor add(const Tensor& a, const Tensor& b){
+    assert(a.shape == b.shape);
+    Tensor result(a.shape);
+    for(int i =0;i<a.numel();i++){
+        result.data[i] = a.data[i] + b.data[i];
+    }
+    return result;
+}
+Tensor multiply(const Tensor& a, const Tensor& b){
+    assert(a.shape == b.shape);
+    Tensor result(a.shape);
+    for(int i =0;i<a.numel();i++){
+        result.data[i] = a.data[i] * b.data[i];
+    }
+    return result;
+}
+Tensor relu(const Tensor& a){
+    
+    Tensor result(a.shape);
+    for(int i = 0;i<a.numel();i++){
+        result.data[i] = std::max(0.0f, a.data[i]);
+    }
+    return result;
+}

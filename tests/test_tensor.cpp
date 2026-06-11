@@ -69,11 +69,37 @@ void test_matmul_large(){
             if(!approx_equal(c_naive.at({i,j}), c_tiled.at({i,j}))) ok = false;
     std::cout << (ok ? "PASS" : "FAIL") << " 64x64 tiled matches naive\n\n";
 }
+void test_elementwise(){
+    std::cout << "=== elementwise ops ===\n";
+    Tensor a({2,3}, {1,2,3,4,5,6});
+    Tensor b({2,3}, {6,5,4,3,2,1});
 
+    Tensor c = add(a, b);
+    bool add_ok = true;
+    for(int i = 0; i < c.numel(); i++)
+        if(!approx_equal(c.data[i], 7.0f)) add_ok = false;
+    std::cout << (add_ok ? "PASS" : "FAIL") << " add\n";
+
+    Tensor d = multiply(a, b);
+    std::vector<float> expected_mul = {6,10,12,12,10,6};
+    bool mul_ok = true;
+    for(int i = 0; i < d.numel(); i++)
+        if(!approx_equal(d.data[i], expected_mul[i])) mul_ok = false;
+    std::cout << (mul_ok ? "PASS" : "FAIL") << " multiply\n";
+
+    Tensor e({2,3}, {-3,-1,0,1,2,3});
+    Tensor f = relu(e);
+    std::vector<float> expected_relu = {0,0,0,1,2,3};
+    bool relu_ok = true;
+    for(int i = 0; i < f.numel(); i++)
+        if(!approx_equal(f.data[i], expected_relu[i])) relu_ok = false;
+    std::cout << (relu_ok ? "PASS" : "FAIL") << " relu\n\n";
+}
 int main(){
     test_tensor_basics();
     test_matmul_correctness();
     test_matmul_non_multiple_of_tile();
     test_matmul_large();
+    test_elementwise();
     return 0;
 }

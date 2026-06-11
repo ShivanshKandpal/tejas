@@ -16,6 +16,10 @@ struct Tensor{
     inline float at2d(int i, int j) const{
         return data[i* strides[0] + j * strides[1]];
     } 
+    int numel() const { return data.size(); }
 };
 Tensor matmul(const Tensor& a, const Tensor& b);
 Tensor matmul_tiled(const Tensor& a, const Tensor& b);
+Tensor add(const Tensor& a, const Tensor& b);
+Tensor multiply(const Tensor& a, const Tensor& b);
+Tensor relu(const Tensor& a);

@@ -10,6 +10,12 @@ struct Tensor{
     float& at(std::vector<int> indices);
     float at(std::vector<int> indices) const;
     void print();
+    inline float& at2d(int i, int j){
+        return data[i* strides[0] + j * strides[1]];
+    }
+    inline float at2d(int i, int j) const{
+        return data[i* strides[0] + j * strides[1]];
+    } 
 };
 Tensor matmul(const Tensor& a, const Tensor& b);
 Tensor matmul_tiled(const Tensor& a, const Tensor& b);

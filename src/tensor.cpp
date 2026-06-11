@@ -73,7 +73,7 @@ Tensor matmul(const Tensor&a, const Tensor& b){
     for(int i = 0;i<shapec[0];i++){
         for(int j = 0;j<shapec[1];j++){
             for(int k = 0;k<shapea[1];k++){
-                c.at({i,j}) += a.at({i,k})*b.at({k,j});
+                c.at2d(i,j) += a.at2d(i,k)*b.at2d(k,j);
             }
         }
     }
@@ -81,7 +81,7 @@ Tensor matmul(const Tensor&a, const Tensor& b){
 }
 
 Tensor matmul_tiled(const Tensor& a, const Tensor& b){
-    int tile = 4;
+    int tile = 16;
     assert(a.shape[1] == b.shape[0]);
     int M = a.shape[0];
     int N = b.shape[1];
@@ -90,10 +90,13 @@ Tensor matmul_tiled(const Tensor& a, const Tensor& b){
     for(int tile_i=0;tile_i<M;tile_i+=tile){
         for(int tile_j=0;tile_j<N;tile_j+=tile){
             for(int tile_k=0;tile_k<K;tile_k+=tile){
-                for(int i = tile_i ;i<std::min(tile_i+tile,M);i++){
-                    for(int j = tile_j;j<std::min(tile_j+tile,N);j++){
-                        for(int k = tile_k;k<std::min(tile_k+tile,K);k++){
-                            c.at({i,j}) += a.at({i,k}) * b.at({k,j});
+                int i_end = std::min(tile_i+tile,M);
+                int j_end = std::min(tile_j+tile,N);
+                int k_end = std::min(tile_k+tile,K);
+                for(int i = tile_i ;i<i_end;i++){
+                    for(int j = tile_j;j<j_end;j++){
+                        for(int k = tile_k;k<k_end;k++){
+                            c.at2d(i,j) += a.at2d(i,k) * b.at2d(k,j);
                         }
                     }
                 }

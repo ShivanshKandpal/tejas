@@ -1,6 +1,6 @@
 #include "tensor.h"
 #include<iostream>
-
+#include<cassert>
 Tensor::Tensor(std::vector<int> shape){
     this->shape = shape;
     int total = 1;
@@ -16,7 +16,26 @@ Tensor::Tensor(std::vector<int> shape){
     this->strides.push_back(1);
 }
 
+Tensor::Tensor(std::vector<int> shape, std::vector<float> values){
+    this->shape = shape;
+    this->data = values;
+    int total = 1;
+    for(int i = 1;i<shape.size();i++) total*=shape[i];
+    for(int i = 1;i<shape.size();i++) {
+        this->strides.push_back(total); 
+        total/=shape[i];
+    }
+    this->strides.push_back(1);
+}
+
 float& Tensor::at(std::vector<int> indices){
+    int index = 0;
+    for(int i = 0;i<indices.size();i++){
+        index += indices[i]*this->strides[i];
+    }
+    return data[index];
+}
+float Tensor::at(std::vector<int> indices) const{
     int index = 0;
     for(int i = 0;i<indices.size();i++){
         index += indices[i]*this->strides[i];
@@ -42,4 +61,20 @@ void Tensor::print(){
         std::cout<<this->data[i]<<", ";
     }
     std::cout<<"]\n";
+}
+Tensor matmul(const Tensor&a, const Tensor& b){
+    std::vector<int> shapea = a.shape;
+    std::vector<int> shapeb = b.shape;
+    assert(shapea[1] == shapeb[0]);
+    std::vector<int> shapec = {shapea[0],shapeb[1]};
+    Tensor c(shapec);
+
+    for(int i = 0;i<shapec[0];i++){
+        for(int j = 0;j<shapec[1];j++){
+            for(int k = 0;k<shapea[1];k++){
+                c.at({i,j}) += a.at({i,k})*b.at({k,j});
+            }
+        }
+    }
+    return c;
 }

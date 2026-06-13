@@ -66,32 +66,38 @@ void Tensor::print(){
     }
     std::cout<<"]\n";
 }
+TensorPtr matmul_raw(const TensorPtr& a, const TensorPtr& b){
+    std::vector<int> shapea = a->shape;
+    std::vector<int> shapeb = b->shape;
+    assert(shapea[1] == shapeb[0]);
+    TensorPtr result = std::make_shared<Tensor>(std::vector<int> {shapea[0],shapeb[1]});
+    for(int i = 0;i<shapea[0];i++){
+        for(int j = 0;j<shapeb[1];j++){
+            for(int k = 0;k<shapea[1];k++){
+                result->at2d(i,j) += a->at2d(i,k)*b->at2d(k,j);
+            }
+        }
+    }
+    return result;
+}
 TensorPtr matmul(const TensorPtr& a, const TensorPtr& b){
     std::vector<int> shapea = a->shape;
     std::vector<int> shapeb = b->shape;
     assert(shapea[1] == shapeb[0]);
-    // std::vector<int> shapec = {shapea[0],shapeb[1]};
-    TensorPtr c = std::make_shared<Tensor>(std::vector<int> {shapea[0],shapeb[1]});
-    c->_prev = {a,b};
-    for(int i = 0;i<shapea[0];i++){
-        for(int j = 0;j<shapeb[1];j++){
-            for(int k = 0;k<shapea[1];k++){
-                c->at2d(i,j) += a->at2d(i,k)*b->at2d(k,j);
-            }
-        }
-    }
+    TensorPtr result = matmul_raw(a,b);
+    result->_prev = {a,b};
     if(a->requires_grad || b->requires_grad){
-        c->requires_grad = true;
-        c->backward_fn = [a, b, c](){
+        result->requires_grad = true;
+        result->backward_fn = [a, b, result](){
             if(a->requires_grad){
-                TensorPtr dA = matmul(c->grad, transpose(b));
+                TensorPtr dA = matmul_raw(result->grad, transpose_raw(b));
                 if(a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
                 for(int i = 0;i<a->numel();i++){
                     a->grad->data[i] += dA->data[i];
                 }
             }
             if(b->requires_grad){
-                TensorPtr dB = matmul(transpose(a), c->grad);
+                TensorPtr dB = matmul_raw(transpose_raw(a), result->grad);
                 if(b->grad == nullptr) b->grad = std::make_shared<Tensor>(b->shape);
                 for(int i = 0;i<b->numel();i++){
                     b->grad->data[i] += dB->data[i];
@@ -99,16 +105,16 @@ TensorPtr matmul(const TensorPtr& a, const TensorPtr& b){
             }
         };  
     }
-    return c;
+    return result;
 }
 
-TensorPtr matmul_tiled(const TensorPtr& a, const TensorPtr& b){
+TensorPtr matmul_tiled_raw(const TensorPtr& a, const TensorPtr& b){
     int tile = 16;
     assert(a->shape[1] == b->shape[0]);
     int M = a->shape[0];
     int N = b->shape[1];
     int K = a->shape[1];
-    TensorPtr c = std::make_shared<Tensor> (std::vector<int> {M,N});
+    TensorPtr result = std::make_shared<Tensor> (std::vector<int> {M,N});
     for(int tile_i=0;tile_i<M;tile_i+=tile){
         for(int tile_j=0;tile_j<N;tile_j+=tile){
             for(int tile_k=0;tile_k<K;tile_k+=tile){
@@ -118,14 +124,41 @@ TensorPtr matmul_tiled(const TensorPtr& a, const TensorPtr& b){
                 for(int i = tile_i ;i<i_end;i++){
                     for(int j = tile_j;j<j_end;j++){
                         for(int k = tile_k;k<k_end;k++){
-                            c->at2d(i,j) += a->at2d(i,k) * b->at2d(k,j);
+                            result->at2d(i,j) += a->at2d(i,k) * b->at2d(k,j);
                         }
                     }
                 }
             }
         }
     }
-    return c;
+    return result;
+}
+
+
+TensorPtr matmul_tiled(const TensorPtr& a, const TensorPtr& b){
+    assert(a->shape[1] == b->shape[0]);
+    TensorPtr result = matmul_tiled_raw(a,b);
+    result->_prev = {a,b};
+    if(a->requires_grad || b->requires_grad){
+        result->requires_grad = true;
+        result->backward_fn = [a, b, result](){
+            if(a->requires_grad){
+                TensorPtr dA = matmul_raw(result->grad, transpose_raw(b));
+                if(a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+                for(int i = 0;i<a->numel();i++){
+                    a->grad->data[i] += dA->data[i];
+                }
+            }
+            if(b->requires_grad){
+                TensorPtr dB = matmul_raw(transpose_raw(a), result->grad);
+                if(b->grad == nullptr) b->grad = std::make_shared<Tensor>(b->shape);
+                for(int i = 0;i<b->numel();i++){
+                    b->grad->data[i] += dB->data[i];
+                }
+            }
+        };  
+    }
+    return result;
 }
 
 TensorPtr add(const TensorPtr& a, const TensorPtr& b){
@@ -154,11 +187,36 @@ TensorPtr add(const TensorPtr& a, const TensorPtr& b){
     }
     return result;
 }
-TensorPtr multiply(const TensorPtr& a, const TensorPtr& b){
+TensorPtr multiply_raw(const TensorPtr& a, const TensorPtr& b){
     assert(a->shape == b->shape);
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i =0;i<a->numel();i++){
         result->data[i] = a->data[i] * b->data[i];
+    }
+    return result;
+}
+TensorPtr multiply(const TensorPtr& a, const TensorPtr& b){
+    assert(a->shape == b->shape);
+    TensorPtr result = multiply_raw(a,b);
+    result->_prev = {a,b};
+    if(a->requires_grad || b->requires_grad){
+        result->requires_grad = true;
+        result->backward_fn = [a, b, result](){
+            if(a->requires_grad){
+                if(a->grad ==  nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+                TensorPtr dA = multiply_raw(result->grad, b);
+                for(int i = 0;i < a->numel();i++){
+                    a->grad->data[i] += dA->data[i];
+                }
+            }
+            if (b->requires_grad) {
+                if (b->grad == nullptr) b->grad = std::make_shared<Tensor>(b->shape);
+                TensorPtr dB = multiply_raw(result->grad, a);
+                for(int i = 0; i < b->numel(); i++) {
+                    b->grad->data[i] += dB->data[i];
+                }
+            }
+        };
     }
     return result;
 }
@@ -219,13 +277,30 @@ void Tensor::backward(){
     }
 }
 
-TensorPtr transpose(const TensorPtr& a){
+TensorPtr transpose_raw(const TensorPtr& a){
     assert(a->shape.size() == 2);
     TensorPtr result = std::make_shared<Tensor>(std::vector<int>{a->shape[1],a->shape[0]});
     for(int i = 0;i<a->shape[0];i++){
         for(int j = 0;j<a->shape[1];j++){
             result->at2d(j,i) = a->at2d(i,j);
         }
+    }
+    return result;
+}
+
+TensorPtr transpose(const TensorPtr& a){
+    assert(a->shape.size() == 2);
+    TensorPtr result = transpose_raw(a);
+    result->_prev = {a};
+    if(a->requires_grad){
+        result->requires_grad = true;
+        result->backward_fn = [a, result](){
+            if (a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+            TensorPtr dL_dA = transpose_raw(result->grad);
+            for(int i = 0;i < a->numel(); i++){
+                a->grad->data[i] += dL_dA->data[i];
+            }
+        };  
     }
     return result;
 }

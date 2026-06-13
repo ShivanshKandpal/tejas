@@ -66,7 +66,7 @@ void Tensor::print(){
     }
     std::cout<<"]\n";
 }
-TensorPtr matmul(TensorPtr a, TensorPtr b){
+TensorPtr matmul(const TensorPtr& a, const TensorPtr& b){
     std::vector<int> shapea = a->shape;
     std::vector<int> shapeb = b->shape;
     assert(shapea[1] == shapeb[0]);
@@ -102,7 +102,7 @@ TensorPtr matmul(TensorPtr a, TensorPtr b){
     return c;
 }
 
-TensorPtr matmul_tiled(TensorPtr a, TensorPtr b){
+TensorPtr matmul_tiled(const TensorPtr& a, const TensorPtr& b){
     int tile = 16;
     assert(a->shape[1] == b->shape[0]);
     int M = a->shape[0];
@@ -128,7 +128,7 @@ TensorPtr matmul_tiled(TensorPtr a, TensorPtr b){
     return c;
 }
 
-TensorPtr add(TensorPtr a, TensorPtr b){
+TensorPtr add(const TensorPtr& a, const TensorPtr& b){
     assert(a->shape == b->shape);
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i =0;i<a->numel();i++){
@@ -154,7 +154,7 @@ TensorPtr add(TensorPtr a, TensorPtr b){
     }
     return result;
 }
-TensorPtr multiply(TensorPtr a, TensorPtr b){
+TensorPtr multiply(const TensorPtr& a, const TensorPtr& b){
     assert(a->shape == b->shape);
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i =0;i<a->numel();i++){
@@ -162,7 +162,7 @@ TensorPtr multiply(TensorPtr a, TensorPtr b){
     }
     return result;
 }
-TensorPtr relu(TensorPtr a){
+TensorPtr relu(const TensorPtr& a){
     
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i = 0;i<a->numel();i++){
@@ -181,7 +181,7 @@ TensorPtr relu(TensorPtr a){
     return result;
 }
 
-TensorPtr sum(TensorPtr a){
+TensorPtr sum(const TensorPtr& a){
     TensorPtr result = std::make_shared<Tensor>(std::vector<int>{1});
     for(int i = 0;i<a->numel();i++){
         result->data[0] += a->data[i];
@@ -219,7 +219,7 @@ void Tensor::backward(){
     }
 }
 
-TensorPtr transpose(TensorPtr a){
+TensorPtr transpose(const TensorPtr& a){
     assert(a->shape.size() == 2);
     TensorPtr result = std::make_shared<Tensor>(std::vector<int>{a->shape[1],a->shape[0]});
     for(int i = 0;i<a->shape[0];i++){

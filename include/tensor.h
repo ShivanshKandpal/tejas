@@ -27,12 +27,12 @@ struct Tensor : public std::enable_shared_from_this<Tensor> {
     int numel() const { return data.size(); }
        
 };
-TensorPtr matmul(TensorPtr a, TensorPtr b);
-TensorPtr matmul_tiled(TensorPtr a, TensorPtr b);
-TensorPtr add(TensorPtr a, const TensorPtr b);
-TensorPtr multiply(TensorPtr a, TensorPtr b);
-TensorPtr relu(TensorPtr a);
-TensorPtr transpose(TensorPtr a);
-TensorPtr sum(TensorPtr a);
+TensorPtr matmul(const TensorPtr& a, const TensorPtr& b);
+TensorPtr matmul_tiled(const TensorPtr& a, const TensorPtr& b);
+TensorPtr add(const TensorPtr& a, const TensorPtr& b);
+TensorPtr multiply(const TensorPtr& a, const TensorPtr& b);
+TensorPtr relu(const TensorPtr& a);
+TensorPtr transpose(const TensorPtr& a);
+TensorPtr sum(const TensorPtr& a);
 
 

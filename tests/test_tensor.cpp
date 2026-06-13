@@ -93,7 +93,7 @@ void test_elementwise(){
 }
 void test_autograd(){
     std::cout << "=== autograd ===\n";
-    // simple case: loss = sum(matmul(a, b))
+    // let's take a simple case: loss = sum(matmul(a, b))
     // a = [[1,2],[3,4]], b = [[1,0],[0,1]] (identity)
     // c = a @ b = a
     // loss = sum(c) = 1+2+3+4 = 10
@@ -107,16 +107,14 @@ void test_autograd(){
 
     TensorPtr c = matmul(a, b);
 
-    // manually set c->grad to ones (simulating loss = sum(c))
     c->grad = std::make_shared<Tensor>(c->shape);
     for(int i = 0; i < c->numel(); i++) c->grad->data[i] = 1.0f;
 
-    // call backward_fn directly (not backward() — no sum op yet)
     if(c->backward_fn) c->backward_fn();
 
-    // dL/dA = dL/dC @ B^T = ones @ identity = ones
+
     std::cout << "dL/dA:\n"; a->grad->print();
-    // dL/dB = A^T @ dL/dC = a^T @ ones
+
     std::cout << "dL/dB:\n"; b->grad->print();
 
     bool da_ok = true, db_ok = true;

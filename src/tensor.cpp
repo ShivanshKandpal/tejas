@@ -85,20 +85,16 @@ TensorPtr matmul(TensorPtr a, TensorPtr b){
         c->backward_fn = [a, b, c](){
             if(a->requires_grad){
                 TensorPtr dA = matmul(c->grad, transpose(b));
-                if(a->grad == nullptr){
-                    a->grad = dA;
-                }
-                else{
-                    a->grad = add(a->grad, dA);
+                if(a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+                for(int i = 0;i<a->numel();i++){
+                    a->grad->data[i] += dA->data[i];
                 }
             }
             if(b->requires_grad){
                 TensorPtr dB = matmul(transpose(a), c->grad);
-                if(b->grad == nullptr){
-                    b->grad = dB;
-                }
-                else{
-                    b->grad = add(b->grad, dB);
+                if(b->grad == nullptr) b->grad = std::make_shared<Tensor>(b->shape);
+                for(int i = 0;i<b->numel();i++){
+                    b->grad->data[i] += dB->data[i];
                 }
             }
         };  
@@ -138,6 +134,24 @@ TensorPtr add(TensorPtr a, TensorPtr b){
     for(int i =0;i<a->numel();i++){
         result->data[i] = a->data[i] + b->data[i];
     }
+    result->_prev = {a,b};
+    if(a->requires_grad || b-> requires_grad){
+        result->requires_grad = true;
+        result->backward_fn = [a, b, result](){
+            if(a->requires_grad){
+                if(a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+                for(int i = 0;i<a->numel();i++){
+                    a->grad->data[i] += result->grad->data[i];
+                }
+            }
+            if(b->requires_grad){
+                if(b->grad == nullptr) b->grad = std::make_shared<Tensor>(b->shape);
+                for(int i = 0;i<b->numel();i++){
+                    b->grad->data[i] += result->grad->data[i];
+                }
+            }
+        };
+    }
     return result;
 }
 TensorPtr multiply(TensorPtr a, TensorPtr b){
@@ -153,6 +167,16 @@ TensorPtr relu(TensorPtr a){
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i = 0;i<a->numel();i++){
         result->data[i] = std::max(0.0f, a->data[i]);
+    }
+    result->_prev = {a};
+    if(a->requires_grad){
+        result->requires_grad = true;
+        result->backward_fn = [a, result](){
+            if(a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+            for(int i = 0;i<a->numel();i++){
+                a->grad->data[i] += result->grad->data[i] * (a->data[i]>0?1.0f:0.0f);
+            }
+        };
     }
     return result;
 }

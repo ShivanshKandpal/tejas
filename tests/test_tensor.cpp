@@ -127,6 +127,54 @@ void test_autograd(){
     std::cout << (da_ok ? "PASS" : "FAIL") << " dL/dA\n";
     std::cout << (db_ok ? "PASS" : "FAIL") << " dL/dB\n\n";
 }
+void test_relu_backward(){
+    std::cout << "=== relu backward ===\n";
+    TensorPtr a = std::make_shared<Tensor>(std::vector<int>{2,3}, std::vector<float>{-3,-1,0,1,2,3});
+    a->requires_grad = true;
+
+    TensorPtr b = relu(a);
+    b->grad = std::make_shared<Tensor>(b->shape);
+    for(int i = 0; i < b->numel(); i++) b->grad->data[i] = 1.0f;
+
+    if(b->backward_fn) b->backward_fn();
+
+    // derivative of relu: 1 where input > 0, else 0
+    // input: [-3,-1,0,1,2,3] → grad: [0,0,0,1,1,1]
+    std::vector<float> expected = {0,0,0,1,1,1};
+    bool ok = true;
+    for(int i = 0; i < 6; i++)
+        if(!approx_equal(a->grad->data[i], expected[i])) ok = false;
+
+    a->grad->print();
+    std::cout << (ok ? "PASS" : "FAIL") << " relu backward\n\n";
+}
+void test_add_backward(){
+    std::cout << "=== add backward ===\n";
+    TensorPtr a = std::make_shared<Tensor>(std::vector<int>{2,3}, std::vector<float>{1,2,3,4,5,6});
+    TensorPtr b = std::make_shared<Tensor>(std::vector<int>{2,3}, std::vector<float>{6,5,4,3,2,1});
+    a->requires_grad = true;
+    b->requires_grad = true;
+
+    TensorPtr c = add(a, b);
+    c->grad = std::make_shared<Tensor>(c->shape);
+    for(int i = 0; i < c->numel(); i++) c->grad->data[i] = 1.0f;
+
+    if(c->backward_fn) c->backward_fn();
+
+    // gradient of add just flows through unchanged
+    // dL/dA = dL/dC = ones
+    // dL/dB = dL/dC = ones
+    bool a_ok = true, b_ok = true;
+    for(int i = 0; i < 6; i++){
+        if(!approx_equal(a->grad->data[i], 1.0f)) a_ok = false;
+        if(!approx_equal(b->grad->data[i], 1.0f)) b_ok = false;
+    }
+
+    std::cout << "dL/dA: "; a->grad->print();
+    std::cout << "dL/dB: "; b->grad->print();
+    std::cout << (a_ok ? "PASS" : "FAIL") << " add backward dL/dA\n";
+    std::cout << (b_ok ? "PASS" : "FAIL") << " add backward dL/dB\n\n";
+}
 int main(){
     test_tensor_basics();
     test_matmul_correctness();
@@ -134,5 +182,7 @@ int main(){
     test_matmul_large();
     test_elementwise();
     test_autograd();
+    test_relu_backward();
+    test_add_backward();
     return 0;
 }

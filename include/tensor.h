@@ -33,5 +33,6 @@ TensorPtr add(TensorPtr a, const TensorPtr b);
 TensorPtr multiply(TensorPtr a, TensorPtr b);
 TensorPtr relu(TensorPtr a);
 TensorPtr transpose(TensorPtr a);
+TensorPtr sum(TensorPtr a);
 
 

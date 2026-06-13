@@ -175,6 +175,52 @@ void test_add_backward(){
     std::cout << (a_ok ? "PASS" : "FAIL") << " add backward dL/dA\n";
     std::cout << (b_ok ? "PASS" : "FAIL") << " add backward dL/dB\n\n";
 }
+void test_sum(){
+    std::cout << "=== sum forward + backward ===\n";
+    TensorPtr a = std::make_shared<Tensor>(std::vector<int>{2,3}, std::vector<float>{1,2,3,4,5,6});
+    a->requires_grad = true;
+    TensorPtr s = sum(a);
+    // forward: 1+2+3+4+5+6 = 21
+    std::cout << (approx_equal(s->data[0], 21.0f) ? "PASS" : "FAIL") << " sum forward\n";
+    // backward: dL/da[i] = 1 for all i
+    if(s->backward_fn){
+        s->grad = std::make_shared<Tensor>(std::vector<int>{1});
+        s->grad->data[0] = 1.0f;
+        s->backward_fn();
+    }
+    bool ok = true;
+    for(int i = 0; i < 6; i++)
+        if(!approx_equal(a->grad->data[i], 1.0f)) ok = false;
+    std::cout << (ok ? "PASS" : "FAIL") << " sum backward\n\n";
+}
+void test_end_to_end(){
+    std::cout << "=== end to end: matmul -> relu -> sum ===\n";
+    // a = [[1,2],[3,4]], b = [[1,0],[0,1]] identity
+    // c = matmul(a,b) = a = [[1,2],[3,4]]
+    // d = relu(c) = [[1,2],[3,4]] (all positive)
+    // loss = sum(d) = 10
+    TensorPtr a = std::make_shared<Tensor>(std::vector<int>{2,2}, std::vector<float>{1,2,3,4});
+    TensorPtr b = std::make_shared<Tensor>(std::vector<int>{2,2}, std::vector<float>{1,0,0,1});
+    a->requires_grad = true;
+    b->requires_grad = true;
+
+    TensorPtr c = matmul(a, b);
+    TensorPtr d = relu(c);
+    TensorPtr loss = sum(d);
+
+    std::cout << (approx_equal(loss->data[0], 10.0f) ? "PASS" : "FAIL") << " forward pass loss=10\n";
+
+    loss->backward();
+
+    // dL/dA should be all ones (relu passes grad through, matmul with identity passes grad through)
+    bool da_ok = true;
+    for(int i = 0; i < 4; i++)
+        if(!approx_equal(a->grad->data[i], 1.0f)) da_ok = false;
+    std::cout << (da_ok ? "PASS" : "FAIL") << " dL/dA all ones\n";
+    std::cout << "dL/dA: "; a->grad->print();
+    std::cout << "dL/dB: "; b->grad->print();
+    std::cout << "\n";
+}
 int main(){
     test_tensor_basics();
     test_matmul_correctness();
@@ -184,5 +230,7 @@ int main(){
     test_autograd();
     test_relu_backward();
     test_add_backward();
+    test_sum();
+    test_end_to_end();
     return 0;
 }

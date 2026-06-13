@@ -181,6 +181,24 @@ TensorPtr relu(TensorPtr a){
     return result;
 }
 
+TensorPtr sum(TensorPtr a){
+    TensorPtr result = std::make_shared<Tensor>(std::vector<int>{1});
+    for(int i = 0;i<a->numel();i++){
+        result->data[0] += a->data[i];
+    }
+    result->_prev = {a};
+    if(a->requires_grad){
+        result->requires_grad = true;
+        result->backward_fn = [a, result](){
+            if(a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+            for(int i = 0;i<a->numel();i++){
+                a->grad->data[i] += result->grad->data[0] * 1.0f;
+            }
+        };
+    }
+    return result;
+}
+
 void Tensor::backward(){
     std::vector<TensorPtr> topo;
     std::set<Tensor*> visited;

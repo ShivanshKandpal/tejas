@@ -25,6 +25,8 @@ struct Tensor : public std::enable_shared_from_this<Tensor> {
         return data[i* strides[0] + j * strides[1]];
     } 
     int numel() const { return data.size(); }
+    void randomize(float scale = 0.1f); 
+    void zero_grad();
        
 };
 TensorPtr matmul_raw(const TensorPtr& a, const TensorPtr& b);
@@ -38,5 +40,7 @@ TensorPtr relu(const TensorPtr& a);
 TensorPtr transpose(const TensorPtr& a);
 TensorPtr transpose_raw(const TensorPtr& a);
 TensorPtr sum(const TensorPtr& a);
+TensorPtr mse_loss(const TensorPtr& pred, float target_val);
+void sgd_step(const TensorPtr& param, float lr);
 
 

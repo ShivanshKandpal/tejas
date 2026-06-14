@@ -5,6 +5,7 @@
 #include <memory>
 #include <set>
 #include <functional>
+#include <random>
 Tensor::Tensor(std::vector<int> shape){
     this->shape = shape;
     int total = 1;
@@ -303,4 +304,35 @@ TensorPtr transpose(const TensorPtr& a){
         };  
     }
     return result;
+}
+void Tensor::randomize(float scale){
+    static std::mt19937 gen(42);
+    std::normal_distribution<float> dist(0.0f, 1.0f);
+    for(int i = 0;i < numel();i++){
+        data[i] = dist(gen) * scale;
+    }   
+}
+void Tensor::zero_grad(){
+    if(grad != nullptr){
+        std::fill(grad->data.begin(),grad->data.end(),0.0f);
+    }
+}
+TensorPtr mse_loss(const TensorPtr& pred, float target_value){
+    TensorPtr loss = std::make_shared<Tensor>(std::vector<int> {1});
+    float diff = pred->data[0] - target_value;
+    loss->data[0] = diff * diff;
+    loss->_prev = {pred};
+    if(pred->requires_grad){
+        loss->requires_grad = true;
+        loss->backward_fn = [pred, diff](){
+            if(pred->grad == nullptr) pred->grad = std::make_shared<Tensor>(pred->shape);
+            pred->grad->data[0] += 2.0f * diff;
+        };
+    }
+    return loss;
+}
+void sgd_step(const TensorPtr& param, float lr){
+    for(int i = 0; i < param->numel(); i++){
+        param->data[i] -= lr * param->grad->data[i];
+    }
 }

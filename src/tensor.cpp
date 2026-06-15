@@ -110,7 +110,7 @@ TensorPtr matmul(const TensorPtr& a, const TensorPtr& b){
 }
 
 TensorPtr matmul_tiled_raw(const TensorPtr& a, const TensorPtr& b){
-    int tile = 16;
+    int tile = 32;
     assert(a->shape[1] == b->shape[0]);
     int M = a->shape[0];
     int N = b->shape[1];

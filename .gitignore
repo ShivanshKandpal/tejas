@@ -3,3 +3,6 @@ build/
 *.a
 *.so
 *.out
+bench_matmul
+test_tensor
+xor

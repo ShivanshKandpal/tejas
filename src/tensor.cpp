@@ -72,10 +72,11 @@ TensorPtr matmul_raw(const TensorPtr& a, const TensorPtr& b){
     std::vector<int> shapeb = b->shape;
     assert(shapea[1] == shapeb[0]);
     TensorPtr result = std::make_shared<Tensor>(std::vector<int> {shapea[0],shapeb[1]});
-    for(int i = 0;i<shapea[0];i++){
-        for(int j = 0;j<shapeb[1];j++){
-            for(int k = 0;k<shapea[1];k++){
-                result->at2d(i,j) += a->at2d(i,k)*b->at2d(k,j);
+    for(int i = 0; i < shapea[0]; i++){
+        for(int k = 0; k < shapea[1]; k++){
+            float a_ik = a->at2d(i, k); 
+            for(int j = 0; j < shapeb[1]; j++){
+                result->at2d(i, j) += a_ik * b->at2d(k, j); 
             }
         }
     }
@@ -116,16 +117,17 @@ TensorPtr matmul_tiled_raw(const TensorPtr& a, const TensorPtr& b){
     int N = b->shape[1];
     int K = a->shape[1];
     TensorPtr result = std::make_shared<Tensor> (std::vector<int> {M,N});
-    for(int tile_i=0;tile_i<M;tile_i+=tile){
-        for(int tile_j=0;tile_j<N;tile_j+=tile){
-            for(int tile_k=0;tile_k<K;tile_k+=tile){
-                int i_end = std::min(tile_i+tile,M);
-                int j_end = std::min(tile_j+tile,N);
-                int k_end = std::min(tile_k+tile,K);
-                for(int i = tile_i ;i<i_end;i++){
-                    for(int j = tile_j;j<j_end;j++){
-                        for(int k = tile_k;k<k_end;k++){
-                            result->at2d(i,j) += a->at2d(i,k) * b->at2d(k,j);
+    for(int tile_i=0; tile_i<M; tile_i+=tile){
+        for(int tile_j=0; tile_j<N; tile_j+=tile){
+            for(int tile_k=0; tile_k<K; tile_k+=tile){
+                int i_end = std::min(tile_i+tile, M);
+                int j_end = std::min(tile_j+tile, N);
+                int k_end = std::min(tile_k+tile, K);
+                for(int i = tile_i; i < i_end; i++){
+                    for(int k = tile_k; k < k_end; k++){
+                        float a_ik = a->at2d(i, k); 
+                        for(int j = tile_j; j < j_end; j++){
+                            result->at2d(i, j) += a_ik * b->at2d(k, j);
                         }
                     }
                 }

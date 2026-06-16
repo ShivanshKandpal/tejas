@@ -6,3 +6,7 @@ build/
 bench_matmul
 test_tensor
 xor
+vector_add
+matmul_naive
+matmul_tiled
+bench_cuda_matmul

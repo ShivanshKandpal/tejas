@@ -36,3 +36,7 @@ target_link_libraries(xor tejas_lib)
 # Build the Dispatcher Test
 add_executable(test_dispatch tests/test_dispatch.cpp)
 target_link_libraries(test_dispatch tejas_lib)
+
+# Build the Parity Test
+add_executable(test_parity tests/test_parity.cpp)
+target_link_libraries(test_parity tejas_lib)

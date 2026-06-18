@@ -100,6 +100,13 @@ float Tensor::at(std::vector<int> indices) const{
     return data[index];
 }
 void Tensor::print(){
+
+    if(this->device == Device::CUDA) {
+        std::cout << "[GPU Tensor] -> ";
+        auto cpu_copy = this->to(Device::CPU);
+        cpu_copy->print();
+        return;
+    }
     std::cout<<"shape : [";
     for(int i = 0;i<this->shape.size();i++){
         if(i == this->shape.size() - 1){
@@ -321,6 +328,13 @@ TensorPtr sum(const TensorPtr& a){
 }
 
 void Tensor::backward(){
+    if(this->device == Device::CUDA) {
+        throw std::runtime_error(
+            "Runtime Error: backward() is not yet supported directly on GPU tensors. "  
+            "Call .cpu() on your loss tensor before calling backward(). Full GPU autograd is planned. "
+        );
+    }
+
     std::vector<TensorPtr> topo;
     std::set<Tensor*> visited;
     std::function<void(TensorPtr)> build = [&](TensorPtr node){
@@ -375,9 +389,7 @@ void Tensor::randomize(float scale){
     }   
 }
 void Tensor::zero_grad(){
-    if(grad != nullptr){
-        std::fill(grad->data.begin(),grad->data.end(),0.0f);
-    }
+    grad == nullptr;
 }
 TensorPtr mse_loss(const TensorPtr& pred, float target_value){
     TensorPtr loss = std::make_shared<Tensor>(std::vector<int> {1});

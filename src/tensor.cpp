@@ -231,12 +231,21 @@ TensorPtr matmul_tiled(const TensorPtr& a, const TensorPtr& b){
     return result;
 }
 
-TensorPtr add(const TensorPtr& a, const TensorPtr& b){
+TensorPtr add_raw(const TensorPtr& a, const TensorPtr& b) {
     assert(a->shape == b->shape);
+    if(a->device != b->device) throw std::runtime_error("Device mismatch in add. ");
+
+    if(a->device == Device::CUDA) return cuda_add_wrapper(a, b);
+
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i =0;i<a->numel();i++){
         result->data[i] = a->data[i] + b->data[i];
     }
+    return result;
+}
+
+TensorPtr add(const TensorPtr& a, const TensorPtr& b){
+    TensorPtr result = add_raw(a, b);
     result->_prev = {a,b};
     if(a->requires_grad || b-> requires_grad){
         result->requires_grad = true;
@@ -259,6 +268,8 @@ TensorPtr add(const TensorPtr& a, const TensorPtr& b){
 }
 TensorPtr multiply_raw(const TensorPtr& a, const TensorPtr& b){
     assert(a->shape == b->shape);
+    if(a->device != b->device) throw std::runtime_error("Device mismatch in multiply. ");
+    if(a->device == Device::CUDA) return cuda_multiply_wrapper(a, b);
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i =0;i<a->numel();i++){
         result->data[i] = a->data[i] * b->data[i];
@@ -266,7 +277,6 @@ TensorPtr multiply_raw(const TensorPtr& a, const TensorPtr& b){
     return result;
 }
 TensorPtr multiply(const TensorPtr& a, const TensorPtr& b){
-    assert(a->shape == b->shape);
     TensorPtr result = multiply_raw(a,b);
     result->_prev = {a,b};
     if(a->requires_grad || b->requires_grad){
@@ -290,12 +300,18 @@ TensorPtr multiply(const TensorPtr& a, const TensorPtr& b){
     }
     return result;
 }
-TensorPtr relu(const TensorPtr& a){
-    
+
+TensorPtr relu_raw(const TensorPtr& a) {
+    if(a->device == Device::CUDA) return cuda_relu_wrapper(a);
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i = 0;i<a->numel();i++){
         result->data[i] = std::max(0.0f, a->data[i]);
     }
+    return result;
+}
+
+TensorPtr relu(const TensorPtr& a){
+    TensorPtr result = relu_raw(a);
     result->_prev = {a};
     if(a->requires_grad){
         result->requires_grad = true;
@@ -389,7 +405,7 @@ void Tensor::randomize(float scale){
     }   
 }
 void Tensor::zero_grad(){
-    grad == nullptr;
+    grad = nullptr;
 }
 TensorPtr mse_loss(const TensorPtr& pred, float target_value){
     TensorPtr loss = std::make_shared<Tensor>(std::vector<int> {1});

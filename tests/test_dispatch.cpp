@@ -16,6 +16,8 @@ int main() {
 
     TensorPtr d_C = matmul(d_A, d_B);
 
+    std::cout << "3. Hardware-accelerated Matmul executed.\n";
+
     TensorPtr C = d_C->cpu();
 
     std::cout << "4. Results pulled back across PCIe bus to CPU.\n\n";

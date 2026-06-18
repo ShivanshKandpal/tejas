@@ -1,30 +1,50 @@
 #pragma once
-#include<vector>
-#include<functional>
+#include <vector>
+#include <functional>
 #include <memory>
+#include "device.h"
+
 struct Tensor;
 using TensorPtr = std::shared_ptr<Tensor>;
 struct Tensor : public std::enable_shared_from_this<Tensor> {
-    std::vector<float> data;
     std::vector<int> shape;
     std::vector<int> strides;
+
+    std::vector<float> data;
+    float* gpu_data = nullptr;
+    Device device;
+
     std::vector<TensorPtr> _prev;
     TensorPtr grad = nullptr;
     bool requires_grad = false;
     std::function<void()>  backward_fn = nullptr;
+
     Tensor(std::vector<int> shape); 
     Tensor(std::vector<int> shape, std::vector<float> values);
+
+    ~Tensor();
+
+    TensorPtr to(Device target_device);
+    TensorPtr cpu();
+    TensorPtr cuda();
+
     float& at(std::vector<int> indices);
     float at(std::vector<int> indices) const;
     void print();
     void backward(); 
+    
     inline float& at2d(int i, int j){
         return data[i* strides[0] + j * strides[1]];
     }
     inline float at2d(int i, int j) const{
         return data[i* strides[0] + j * strides[1]];
     } 
-    int numel() const { return data.size(); }
+    int numel() const {
+        if(shape.empty()) return 0;
+        int elements = 1;
+        for(int s : shape) elements *= s;
+        return elements;
+    }
     void randomize(float scale = 0.1f); 
     void zero_grad();
        

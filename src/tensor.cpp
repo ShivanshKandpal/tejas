@@ -1,11 +1,14 @@
 #include "tensor.h"
-#include<iostream>
-#include<cassert>
+#include "backend.h"
+#include <iostream>
+#include <cassert>
 #include <algorithm>
 #include <memory>
 #include <set>
 #include <functional>
 #include <random>
+#include <cuda_runtime.h>
+
 Tensor::Tensor(std::vector<int> shape){
     this->shape = shape;
     int total = 1;
@@ -31,6 +34,55 @@ Tensor::Tensor(std::vector<int> shape, std::vector<float> values){
         total/=shape[i];
     }
     this->strides.push_back(1);
+}
+
+Tensor::~Tensor() {
+    if(gpu_data != nullptr) {
+        cudaFree(gpu_data);
+        gpu_data = nullptr;
+    }
+}
+
+TensorPtr Tensor::to(Device target){
+    if (this->device == target){
+       return shared_from_this();
+    }
+    
+    TensorPtr result = std::make_shared<Tensor>(this->shape);
+    result->device = target;
+
+    int total_bytes = this->numel() * sizeof(float);
+
+    if(target == Device::CUDA){
+        //cpu to gpu
+        cudaMalloc(&result->gpu_data, total_bytes);
+        cudaMemcpy(result->gpu_data, this->data.data(), total_bytes, cudaMemcpyHostToDevice);
+        result->data.clear();
+    }
+    else if (target == Device::CPU){
+        result->data.resize(this->numel());
+        cudaMemcpy(result->data.data(), this->gpu_data, total_bytes, cudaMemcpyDeviceToHost);
+    }
+
+    result->_prev = {shared_from_this()};
+    if(this->requires_grad) {
+        result->requires_grad = true;
+        result->backward_fn = [this_node = shared_from_this(), result]() {
+            if (this_node->grad == nullptr) {
+                this_node->grad = std::make_shared<Tensor>(this_node->shape);
+            }
+        };
+    }
+    return result;
+}
+
+TensorPtr Tensor::cpu() {
+    return this->to(Device::CPU);
+
+}
+
+TensorPtr Tensor::cuda() {
+    return this->to(Device::CUDA);
 }
 
 float& Tensor::at(std::vector<int> indices){
@@ -71,6 +123,14 @@ TensorPtr matmul_raw(const TensorPtr& a, const TensorPtr& b){
     std::vector<int> shapea = a->shape;
     std::vector<int> shapeb = b->shape;
     assert(shapea[1] == shapeb[0]);
+
+    if (a->device != b->device) {
+        throw std::runtime_error("Runtime Error: Tensors must be on the same device!");
+    }
+
+    if(a->device == Device::CUDA) {
+        return cuda_matmul_tiled_wrapper(a, b);
+    }
     TensorPtr result = std::make_shared<Tensor>(std::vector<int> {shapea[0],shapeb[1]});
     for(int i = 0; i < shapea[0]; i++){
         for(int k = 0; k < shapea[1]; k++){

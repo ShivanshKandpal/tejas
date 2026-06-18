@@ -67,3 +67,62 @@ TensorPtr cuda_matmul_tiled_wrapper(const TensorPtr& a, const TensorPtr& b) {
 
     return result;
 }
+
+//elementwise kernels
+
+__global__ void add_kernel(const float* a, const float* b, float *c, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if(i < n) c[i] = a[i] + b[i];
+}
+
+__global__ void multiply_kernel(const float* a, const float* b, float* c, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if(i < n) c[i] = a[i] * b[i];
+}
+
+__global__ void relu_kernel(const float* input, float* output, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if(i < n) output[i] = input[i] > 0.0f ? input[i] : 0.0f;
+
+}
+
+//elementwise wrappers
+
+TensorPtr cuda_add_wrapper(const TensorPtr& a, const TensorPtr& b) {
+    TensorPtr result = std::make_shared<Tensor>(a->shape);
+    result->device = Device::CUDA;
+    cudaMalloc(&result->gpu_data, a->numel() * sizeof(float));
+
+    int threads = 256;
+    int blocks = (a->numel() + threads - 1) / threads;
+    add_kernel<<<blocks, threads>>>(a->gpu_data, b->gpu_data, result->gpu_data, a->numel());
+    cudaDeviceSynchronize();
+    return result;
+}
+
+TensorPtr cuda_multiply_wrapper(const TensorPtr& a, const TensorPtr& b) {
+    TensorPtr result = std::make_shared<Tensor>(a->shape);
+    result->device = Device::CUDA;
+    cudaMalloc(&result->gpu_data, a->numel() * sizeof(float));
+
+    int threads = 256;
+    int blocks = (a->numel() + threads - 1) / threads;
+    multiply_kernel<<<blocks, threads>>>(a->gpu_data, b->gpu_data, result->gpu_data, a->numel());
+    cudaDeviceSynchronize();
+
+    return result;
+}
+
+TensorPtr cuda_relu_wrapper(const TensorPtr& a) {
+    TensorPtr result = std::make_shared<Tensor>(a->shape);
+    result->device = Device::CUDA;
+    cudaMalloc(&result->gpu_data, a->numel() * sizeof(float));
+
+    int threads = 256;
+    int blocks = (a->numel() + threads - 1) / threads;
+    relu_kernel<<<blocks, threads>>>(a->gpu_data, result->gpu_data, a->numel());
+    cudaDeviceSynchronize();
+
+    return result;
+
+}

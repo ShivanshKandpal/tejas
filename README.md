@@ -1,10 +1,22 @@
 # tejas
 
+[![CI](https://github.com/ShivanshKandpal/tejas/actions/workflows/ci.yml/badge.svg)](https://github.com/ShivanshKandpal/tejas/actions/workflows/ci.yml)
+
 A tensor library and autograd engine built from scratch in C++, with custom CUDA kernels.
 
 ## Why
 
-Most people use PyTorch without understanding what is underneath it. This project is an attempt to build the core of a tensor library including memory layout, matrix multiplication, and automatic differentiation from first principles. The goal is to actually understand how frameworks like PyTorch work at the metal level.
+I wanted to understand what actually happens when you call `loss.backward()` in PyTorch.
+
+Not at the level of "it computes gradients using the chain rule" but at the level of: 
+what data structure is the computation graph? How does a tensor know which operation 
+created it? Why does PyTorch use `shared_ptr` internally? What is a CUDA kernel actually 
+doing when matmul runs on a GPU, and why is it 17x faster than a CPU at 1024x1024 but 
+slower at 64x64?
+
+The goal of this project isn't to replace production libraries, but to engineer the core of a tensor engine from first principles. It is an exploration of C++ memory management, PCIe bottlenecking, parallel hardware architecture, and topological graph traversal. I wanted to build the tools, understand the hardware limitations, and run a real model with them.
+
+Along the way I hit the bugs that explain the design decisions: the dangling reference problem that makes `shared_ptr` non-negotiable, the `std::vector` allocation overhead that made tiling appear slower than naive, the loop reordering that beat manual cache blocking by 2x on CPU while being useless on GPU
 
 ## What is implemented
 
@@ -89,21 +101,21 @@ Internal operations (`matmul_raw`, `transpose_raw`, etc.) perform pure computati
 ## Build & run
 
 ```bash
-# run tests
-g++ tests/test_tensor.cpp src/tensor.cpp -I include -O3 -march=native -o test_tensor
-./test_tensor
+# Build (CPU + CUDA)
+mkdir build && cd build
+cmake ..
+make -j4
 
-# run benchmark
-g++ benchmarks/bench_matmul.cpp src/tensor.cpp -I include -O3 -march=native -o bench_matmul
-./bench_matmul
+# Build (CPU only)
+mkdir build && cd build
+cmake .. -DSKIP_CUDA=ON
+make -j4
 
-# run XOR training demo
-g++ examples/xor.cpp src/tensor.cpp -I include -O3 -march=native -o xor
-./xor
-
-# run CUDA benchmark
-nvcc benchmarks/bench_cuda_matmul.cu -O3 -Xcompiler "-O3 -march=native" -o bench_cuda_matmul
-./bench_cuda_matmul
+# Run tests
+./build/test_tensor
+./build/xor
+./build/test_parity    # GPU only
+./build/test_dispatch  # GPU only
 ```
 
 ## Roadmap
@@ -132,10 +144,10 @@ nvcc benchmarks/bench_cuda_matmul.cu -O3 -Xcompiler "-O3 -march=native" -o bench
 - [x] Naive CUDA matmul
 - [x] Shared-memory tiled matmul
 - [x] CPU vs GPU benchmarks
-- [ ] CUDA elementwise kernels
+- [x] CUDA elementwise kernels
 - [ ] CUDA reductions
-- [ ] Device abstraction (`CPU` / `CUDA`)
-- [ ] GPU tensor storage
+- [x] Device abstraction (`CPU` / `CUDA`)
+- [x] GPU tensor storage
 
 ### Neural Network Components
 - [x] XOR MLP demo

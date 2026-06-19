@@ -3,7 +3,6 @@
     #include <cuda_runtime.h> 
     #include "backend.h"
 #endif
-#include "backend.h"
 #include <iostream>
 #include <cassert>
 #include <algorithm>

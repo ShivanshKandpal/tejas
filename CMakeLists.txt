@@ -23,6 +23,9 @@ if(NOT SKIP_CUDA)
     # Compile the library with the GPU backend
     add_library(tejas_lib src/tensor.cpp src/cuda_backend.cu)
     target_link_libraries(tejas_lib PUBLIC CUDA::cudart)
+    
+    #Define USE_CUDA macro for our C++ files
+    target_compile_definitions(tejas_lib PUBLIC USE_CUDA)
 else()
     # CPU-Only Mode (GitHub Actions)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native")

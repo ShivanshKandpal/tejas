@@ -1,4 +1,8 @@
 #include "tensor.h"
+#ifdef USE_CUDA
+    #include <cuda_runtime.h> 
+    #include "backend.h"
+#endif
 #include "backend.h"
 #include <iostream>
 #include <cassert>
@@ -7,7 +11,6 @@
 #include <set>
 #include <functional>
 #include <random>
-#include <cuda_runtime.h>
 
 Tensor::Tensor(std::vector<int> shape){
     this->shape = shape;
@@ -37,10 +40,13 @@ Tensor::Tensor(std::vector<int> shape, std::vector<float> values){
 }
 
 Tensor::~Tensor() {
-    if(gpu_data != nullptr) {
+#ifdef USE_CUDA
+    
+    if (gpu_data != nullptr) {
         cudaFree(gpu_data);
         gpu_data = nullptr;
     }
+#endif
 }
 
 TensorPtr Tensor::to(Device target){
@@ -54,14 +60,20 @@ TensorPtr Tensor::to(Device target){
     int total_bytes = this->numel() * sizeof(float);
 
     if(target == Device::CUDA){
+    #ifdef USE_CUDA        
         //cpu to gpu
         cudaMalloc(&result->gpu_data, total_bytes);
         cudaMemcpy(result->gpu_data, this->data.data(), total_bytes, cudaMemcpyHostToDevice);
         result->data.clear();
+    #endif
     }
     else if (target == Device::CPU){
         result->data.resize(this->numel());
-        cudaMemcpy(result->data.data(), this->gpu_data, total_bytes, cudaMemcpyDeviceToHost);
+        #ifdef USE_CUDA
+        if (this->device == Device::CUDA) {
+            cudaMemcpy(result->data.data(), this->gpu_data, total_bytes, cudaMemcpyDeviceToHost);
+        }
+        #endif
     }
 
     result->_prev = {shared_from_this()};
@@ -136,7 +148,11 @@ TensorPtr matmul_raw(const TensorPtr& a, const TensorPtr& b){
     }
 
     if(a->device == Device::CUDA) {
+#ifdef USE_CUDA
         return cuda_matmul_tiled_wrapper(a, b);
+#else 
+        throw std::runtime_error("Tejas was compiled without CUDA support. ");
+#endif
     }
     TensorPtr result = std::make_shared<Tensor>(std::vector<int> {shapea[0],shapeb[1]});
     for(int i = 0; i < shapea[0]; i++){
@@ -235,7 +251,13 @@ TensorPtr add_raw(const TensorPtr& a, const TensorPtr& b) {
     assert(a->shape == b->shape);
     if(a->device != b->device) throw std::runtime_error("Device mismatch in add. ");
 
-    if(a->device == Device::CUDA) return cuda_add_wrapper(a, b);
+    if(a->device == Device::CUDA) {
+#ifdef USE_CUDA
+        return cuda_add_wrapper(a, b);
+#else 
+        throw std::runtime_error("Tejas was compiled without CUDA support.");
+#endif  
+    }
 
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i =0;i<a->numel();i++){
@@ -269,7 +291,13 @@ TensorPtr add(const TensorPtr& a, const TensorPtr& b){
 TensorPtr multiply_raw(const TensorPtr& a, const TensorPtr& b){
     assert(a->shape == b->shape);
     if(a->device != b->device) throw std::runtime_error("Device mismatch in multiply. ");
-    if(a->device == Device::CUDA) return cuda_multiply_wrapper(a, b);
+    if(a->device == Device::CUDA) {
+#ifdef USE_CUDA
+        return cuda_multiply_wrapper(a, b);
+#else 
+        throw std::runtime_error("Tejas was compiled without CUDA support.");
+#endif
+    }
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i =0;i<a->numel();i++){
         result->data[i] = a->data[i] * b->data[i];
@@ -302,7 +330,13 @@ TensorPtr multiply(const TensorPtr& a, const TensorPtr& b){
 }
 
 TensorPtr relu_raw(const TensorPtr& a) {
-    if(a->device == Device::CUDA) return cuda_relu_wrapper(a);
+    if(a->device == Device::CUDA) {
+#ifdef USE_CUDA
+        return cuda_relu_wrapper(a);
+#else 
+        throw std::runtime_error("Tejas was compiled without CUDA support.");
+#endif
+    }
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i = 0;i<a->numel();i++){
         result->data[i] = std::max(0.0f, a->data[i]);

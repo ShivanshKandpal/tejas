@@ -14,7 +14,7 @@ void assert_tensors_equal(TensorPtr t1, TensorPtr t2) {
 }
 
 int main() {
-    std::cout<<" Tejas Elementwise Parity Check \n";
+    std::cout << "--- Tejas Hardware Parity Check ---\n";
     TensorPtr A = std::make_shared<Tensor>(std::vector<int>{2, 2}, std::vector<float>{-1.0f, 2.0f, -3.0f, 4.0f});
     TensorPtr B = std::make_shared<Tensor>(std::vector<int>{2, 2}, std::vector<float>{5.0f, 6.0f, 7.0f, 8.0f});
 
@@ -36,6 +36,36 @@ int main() {
     assert_tensors_equal(C_relu, d_C_relu);
     std::cout<<"[PASS] ReLU (CPU vs GPU)\n";
 
+    TensorPtr A_big = std::make_shared<Tensor>(std::vector<int>{64, 64});
+    TensorPtr B_big = std::make_shared<Tensor>(std::vector<int>{64, 64});
+    A_big->randomize(); B_big->randomize();
+
+    TensorPtr d_A_big = A_big->cuda();
+    TensorPtr d_B_big = B_big->cuda();
+
+    TensorPtr C_cpu = matmul(A_big, B_big);
+    TensorPtr C_gpu = matmul(d_A_big, d_B_big)->cpu();
+
+    bool matmul_match = true;
+    for(int i = 0; i < C_cpu->numel(); i++) {
+        float rel_err = std::abs(C_cpu->data[i] - C_gpu->data[i]) / (std::abs(C_cpu->data[i] + 1e-6f));
+
+        if(rel_err > 1e-3) {
+            std::cerr << "Matmul mismatch at index " << i
+            << ": CPU " << C_cpu->data[i]
+            << " != GPU " << C_gpu->data[i]
+            << " (Rel Err: " << rel_err << ")\n";
+            matmul_match = false;
+            break;
+        }
+    }
+
+    if (matmul_match) {
+        std::cout << "[PASS] Matmul (CPU vs GPU)\n";
+    } else {
+        std::cout << "[FAIL] Matmul (CPU vs GPU)\n";
+        assert(false);
+    }
     std::cout << "\nSUCCESS: All GPU operations perfectly match CPU baseline!\n";
     return 0;
 }

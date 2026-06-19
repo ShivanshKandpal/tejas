@@ -31,3 +31,7 @@ jobs:
     - name: Run Core Autograd Tests
       run: |
         ./build/test_tensor
+    
+    - name: Run XOR Integration Test
+      run: |
+        ./build/xor

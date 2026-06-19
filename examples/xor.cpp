@@ -1,6 +1,6 @@
 #include "tensor.h"
 #include<iostream> 
-
+#include <iomanip>
 int main(){
     float X[4][2] = {{0,0},{0,1},{1,0},{1,1}};
     float Y[4] = {0,1,1,0};
@@ -40,6 +40,11 @@ int main(){
         if(epoch % 100 == 0)
             std::cout << "epoch " << epoch << " loss: " << total_loss << "\n";
     }
+    std::cout << "\n==================================================\n";
+    std::cout << std::left << std::setw(18) << "Output" 
+            << std::setw(15) << "Prediction" 
+            << std::setw(18) << "Loss" << "\n";
+    std::cout << "--------------------------------------------------\n";
     for(int i = 0;i<4;i++){
         TensorPtr input = std::make_shared<Tensor>(std::vector<int> {1,2});
         input->data[0] = X[i][0];
@@ -47,7 +52,9 @@ int main(){
         TensorPtr h = relu(add(matmul(input, W1),b1));
         TensorPtr out = add(matmul(h, W2), b2);
         TensorPtr loss = mse_loss(out, Y[i]);
-        std::cout<<out->data[0]<<" "<<Y[i]<<' '<<loss->data[0]<<"\n";
+        std::cout << std::left << std::setw(18) << std::fixed << std::setprecision(6) << out->data[0]
+          << std::setw(15) << Y[i]
+          << std::setw(18) << std::scientific << std::setprecision(6) << loss->data[0] << "\n";
     }
 
 }

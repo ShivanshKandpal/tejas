@@ -12,7 +12,7 @@ struct Tensor : public std::enable_shared_from_this<Tensor> {
 
     std::vector<float> data;
     float* gpu_data = nullptr;
-    Device device;
+    Device device = Device::CPU;
 
     std::vector<TensorPtr> _prev;
     TensorPtr grad = nullptr;

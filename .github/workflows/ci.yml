@@ -28,7 +28,7 @@ jobs:
         cd build
         make -j4
 
-    - name: Run Core Autograd Tests
+    - name: Run CPU Test Suite
       run: |
         ./build/test_tensor
     

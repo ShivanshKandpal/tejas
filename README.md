@@ -23,6 +23,9 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 **Tensor core**
 * N-dimensional tensor backed by a flat `std::vector<float>`, with shape and stride-based indexing
 * Stride computation supports arbitrary dimensionality
+* Device abstraction with `CPU` and `CUDA`
+* Tensor transfers via `Tensor::cpu()` and `Tensor::cuda()`
+* GPU tensor storage using device memory (`gpu_data`)
 
 **Matrix multiplication**
 * Naive $O(n^3)$ implementation (CPU)
@@ -30,20 +33,26 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 * Loop-reordered `i-k-j` implementation (CPU)
 * Naive CUDA implementation (2D Grid/Block mapping)
 * Tiled CUDA implementation (Shared memory, cooperative loading, `__syncthreads()`)
+* Automatic CPU/CUDA dispatch based on tensor device
 
-**Elementwise ops**
-* `add`, `multiply`, `relu`, `transpose`, `sum`
+**Tensor operations**
+* `add`, `multiply`, `relu`, `transpose`, `sum`, `softmax`
+* CUDA implementations for `add`, `multiply`, `relu`, and `softmax`
+* Shared-memory reduction kernel for row-wise softmax
 
 **Autograd engine**
 * Reverse-mode automatic differentiation over a dynamically built computation graph
 * Each tensor stores `shared_ptr` references to its inputs (`_prev`), keeping the graph alive for backward passes
 * `backward()` performs a topological sort and calls each node's `backward_fn` in reverse order
 * Gradients implemented for matmul, add, multiply, relu, transpose, and sum
+* CPU autograd support with forward-only CUDA execution
 
 **Training demo**
-* A 2-layer MLP trained on XOR using only this library. The forward pass is `matmul -> add -> relu -> matmul -> add -> MSE loss`, trained with SGD.
-* Converges from loss ~1.68 to ~0 within 100 epochs.
-* This training loop exercises the full autograd engine, including forward propagation, backward propagation, and parameter updates.
+* A 2-layer MLP trained on XOR using only this library
+* Forward pass: `matmul -> add -> relu -> matmul -> add -> MSE loss`
+* Trained with SGD implemented from scratch
+* Converges from loss ~1.68 to ~0 within 100 epochs
+* Exercises the full autograd engine, including forward propagation, backward propagation, and parameter updates
 
 
 ## Benchmarks
@@ -131,7 +140,8 @@ make -j4
 - [x] Reverse-mode autograd engine
 - [x] Topological graph traversal
 - [ ] Gradient checking via finite differences
-- [ ] Additional ops (softmax, GELU, LayerNorm)
+- [x] Softmax
+- [ ] Additional ops (GELU, LayerNorm)
 
 ### CPU Backend
 - [x] Naive matmul
@@ -145,7 +155,7 @@ make -j4
 - [x] Shared-memory tiled matmul
 - [x] CPU vs GPU benchmarks
 - [x] CUDA elementwise kernels
-- [ ] CUDA reductions
+- [x] CUDA reductions
 - [x] Device abstraction (`CPU` / `CUDA`)
 - [x] GPU tensor storage
 

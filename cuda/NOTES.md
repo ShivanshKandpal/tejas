@@ -133,3 +133,79 @@ Average of 10 runs after warm-up.
 | 512 | 8.98 ms | 0.69 ms | 13.09x |
 | 1024 | 81.81 ms | 4.61 ms | 17.74x |
 | 2048 | 1408.78 ms | 47.77 ms | 29.49x |
+
+## 5. Parallel Reduction: Softmax on the GPU
+
+Elementwise operations such as Add and ReLU are straightforward to parallelize because each thread can process one element independently. Softmax is different because it requires information from the entire row.
+
+For each row, we need to:
+
+1. Find the maximum value (for numerical stability).
+2. Compute exponentials.
+3. Sum the exponentials.
+4. Normalize each element by the sum.
+
+Finding the maximum and computing the sum are reduction operations, which require cooperation between threads in a block.
+
+### Tree Reduction
+
+A naive approach would have a single thread scan the entire row to compute the maximum or sum. This works, but it leaves most of the GPU idle.
+
+Instead, we use a tree reduction in shared memory. At each step, half of the threads combine their values with another element a fixed distance away. The distance (`stride`) is halved every iteration until a single value remains.
+
+For example:
+
+```text
+8 values
+↓
+4 partial results
+↓
+2 partial results
+↓
+1 final result
+```
+
+This reduces the amount of work per thread and allows the entire block to participate in the reduction.
+
+### Why `__syncthreads()` Is Needed
+
+During the reduction, threads repeatedly read values written by other threads in previous iterations.
+
+```cpp
+for(int stride = blockDim.x / 2; stride > 0; stride /= 2) {
+    if(threadIdx.x < stride) {
+        sdata[threadIdx.x] += sdata[threadIdx.x + stride];
+    }
+    __syncthreads();
+}
+```
+
+The synchronization barrier ensures that all writes for the current iteration are visible before the next iteration begins. Without it, some threads could read values that have not been updated yet, producing incorrect results.
+
+### Handling Non-Power-of-Two Sizes
+
+The reduction above works most naturally when the number of threads is a power of two.
+
+For example:
+
+```text
+2, 4, 8, 16, 32, 64, ...
+```
+
+Real tensor dimensions are often not powers of two. A row might contain 13 elements instead of 16.
+
+To handle this, we launch the next power-of-two number of threads and pad the extra entries in shared memory.
+
+For a max reduction:
+
+```cpp
+sdata[tid] = -CUDART_INF_F;
+```
+
+For a sum reduction:
+
+```cpp
+sdata[tid] = 0.0f;
+```
+
+These values do not affect the final result, allowing the same reduction code to work for arbitrary row sizes while keeping the reduction tree balanced.

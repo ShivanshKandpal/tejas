@@ -443,6 +443,14 @@ void Tensor::zero_grad(){
 
 TensorPtr softmax(const TensorPtr& a) {
     assert(a->shape.size() <= 2);
+
+    if(a->device == Device::CUDA) {
+        #ifdef USE_CUDA
+            return cuda_softmax_wrapper(a);
+        #else
+            throw std::runtime_error("Tejas was compiled without cuda support.");
+        #endif
+    }
     TensorPtr result = std::make_shared<Tensor>(a->shape);
 
     //rn a can only be 1D or 2D 

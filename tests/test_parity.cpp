@@ -66,6 +66,36 @@ int main() {
         std::cout << "[FAIL] Matmul (CPU vs GPU)\n";
         assert(false);
     }
+
+    TensorPtr A_sm = std::make_shared<Tensor>(std::vector<int>{7, 13});
+    for (int i = 0; i < A_sm->numel(); i++) A_sm->data[i] = (float)(rand() % 100) / 10.0f; 
+
+    TensorPtr d_A_sm = A_sm->cuda();
+
+    TensorPtr sm_cpu = softmax(A_sm);
+    TensorPtr sm_gpu = softmax(d_A_sm)->cpu();
+
+    bool sm_match = true;
+    for(int i = 0; i < sm_cpu->numel(); i++) {
+        float rel_err = std::abs(sm_cpu->data[i] - sm_gpu->data[i]) / 
+                        (std::abs(sm_cpu->data[i]) + 1e-6f);
+        
+        if(rel_err > 1e-3f) { 
+            std::cerr << "Softmax mismatch at index " << i 
+                      << ": CPU " << sm_cpu->data[i] 
+                      << " != GPU " << sm_gpu->data[i] << "\n";
+            sm_match = false; 
+            break; 
+        }
+    }
+    
+    if (sm_match) {
+        std::cout << "[PASS] Softmax (CPU vs GPU)\n";
+    } else {
+        std::cout << "[FAIL] Softmax (CPU vs GPU)\n";
+        assert(false);
+    }
+    
     std::cout << "\nSUCCESS: All GPU operations perfectly match CPU baseline!\n";
     return 0;
 }

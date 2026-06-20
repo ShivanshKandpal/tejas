@@ -1,7 +1,14 @@
 #include "backend.h"
 #include <cuda_runtime.h>
+#include <math_constants.h> //cudart_inf_f
 #include <cassert>
 #include <iostream>
+
+inline int next_power_of_2(int n) {
+    int p = 1;
+    while (p < n) p *= 2;
+    return p;
+}
 
 #define TILE_SIZE 16
 
@@ -86,6 +93,7 @@ __global__ void relu_kernel(const float* input, float* output, int n) {
 
 }
 
+
 //elementwise wrappers
 
 TensorPtr cuda_add_wrapper(const TensorPtr& a, const TensorPtr& b) {
@@ -125,4 +133,81 @@ TensorPtr cuda_relu_wrapper(const TensorPtr& a) {
 
     return result;
 
+}
+
+
+// softmax kernel
+
+__global__ void softmax_kernel(const float* input, float* output, int rows, int cols) {
+    extern __shared__ float sdata[];
+
+    int row = blockIdx.x;
+    int col = threadIdx.x;
+    int idx = row * cols + col;
+
+    if(col < cols){
+        sdata[col] = input[idx];
+    }
+    else {
+        sdata[col] = -CUDART_INF_F;
+    }  
+    __syncthreads();
+
+    for(int stride = blockDim.x/2; stride > 0; stride /= 2) {
+        if(col < stride) {
+            sdata[col] = fmaxf(sdata[col], sdata[col + stride]);
+        }
+        __syncthreads();
+    }
+
+    float row_max = sdata[0];
+    __syncthreads();
+
+    float exp_val = 0.0f;
+    if(col < cols) {
+        exp_val = expf(input[idx] - row_max);
+        sdata[col] = exp_val;
+    }
+    else {
+        sdata[col] = 0.0f;
+    }
+    __syncthreads();
+
+    for(int stride = blockDim.x/2; stride > 0; stride /= 2) {
+        if(col < stride) {
+            sdata[col] += sdata[col + stride];
+        }
+        __syncthreads();
+    }
+
+    float row_sum = sdata[0];
+
+    if(col < cols) {
+        output[idx] = exp_val / row_sum;
+    }
+
+}
+
+// softmax wrapper
+
+TensorPtr cuda_softmax_wrapper(const TensorPtr& a) {
+    assert(a->shape.size() <= 2);
+
+    int rows = (a->shape.size() > 1) ? a->shape[0] : 1;
+    int cols = (a->shape.size() > 1) ? a->shape[1] : a->shape[0];
+
+    assert(cols <= 1024);   
+
+    int block_size = next_power_of_2(cols);
+
+    TensorPtr result = std::make_shared<Tensor>(a->shape);
+    result->device = Device::CUDA;
+    cudaMalloc(&result->gpu_data, a->numel() * sizeof(float));
+
+    softmax_kernel<<<rows, block_size, block_size * sizeof(float)>>>(
+        a->gpu_data, result->gpu_data, rows, cols
+    );
+    cudaDeviceSynchronize();
+
+    return result;
 }

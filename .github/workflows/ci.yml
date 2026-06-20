@@ -35,3 +35,6 @@ jobs:
     - name: Run XOR Integration Test
       run: |
         ./build/xor
+
+    - name: Run Gradient Check
+      run: ./build/test_gradcheck

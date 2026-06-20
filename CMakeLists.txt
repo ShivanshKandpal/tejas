@@ -43,6 +43,8 @@ target_link_libraries(test_tensor tejas_lib)
 add_executable(xor examples/xor.cpp)
 target_link_libraries(xor tejas_lib)
 
+add_executable(test_gradcheck tests/test_gradcheck.cpp)
+target_link_libraries(test_gradcheck tejas_lib)
 # ==========================================
 # Hardware-Specific Executables (Skipped in CI)
 # ==========================================

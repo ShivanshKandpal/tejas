@@ -221,6 +221,51 @@ void test_end_to_end(){
     std::cout << "dL/dB: "; b->grad->print();
     std::cout << "\n";
 }
+
+void test_softmax() {
+    std::cout << "=== Testing Softmax ===\n";
+
+    TensorPtr a = std::make_shared<Tensor>(std::vector<int>{2,3});
+    a->data = {
+        1.0f, 2.0f, 3.0f,
+        100.0f, 101.0f, 102.0f,
+    };
+
+    TensorPtr result = softmax(a);
+
+    std::vector<float> expected = {
+        0.090030f, 0.244728f, 0.665240f,
+        0.090030f, 0.244728f, 0.665240f
+    };
+
+    bool match = true;
+    for (int i = 0; i < result->numel(); i++) {
+        float diff = std::abs(result->data[i] - expected[i]);
+        if (diff > 1e-4f) { 
+            std::cerr << "[FAIL] Softmax mismatch at index " << i 
+                      << ": Expected " << expected[i] 
+                      << ", Got " << result->data[i] << "\n";
+            match = false;
+            break;
+        }
+    }
+
+    if (match) {
+        std::cout << "[PASS] Softmax Math & Stability\n";
+    } else {
+        assert(false);
+    }
+    for(int i = 0; i < 2; i++){
+        float row_sum = 0.0f;
+        for(int j = 0; j < 3; j++) row_sum += result->data[i*3 + j];
+        if(std::abs(row_sum - 1.0f) > 1e-5f){
+            std::cerr << "[FAIL] Row " << i << " sums to " << row_sum << " not 1.0\n";
+            assert(false);
+        }
+    }
+    std::cout << "[PASS] Softmax rows sum to 1\n";
+
+}
 int main(){
     test_tensor_basics();
     test_matmul_correctness();
@@ -232,5 +277,6 @@ int main(){
     test_add_backward();
     test_sum();
     test_end_to_end();
+    test_softmax();
     return 0;
 }

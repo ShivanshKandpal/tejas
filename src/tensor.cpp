@@ -440,6 +440,39 @@ void Tensor::randomize(float scale){
 void Tensor::zero_grad(){
     grad = nullptr;
 }
+
+TensorPtr softmax(const TensorPtr& a) {
+    assert(a->shape.size() <= 2);
+    TensorPtr result = std::make_shared<Tensor>(a->shape);
+
+    //rn a can only be 1D or 2D 
+    int rows = (a->shape.size() > 1) ? a->shape[0] : 1;
+    int cols = (a->shape.size() > 1) ? a->shape[1] : a->shape[0];
+
+    for(int i = 0; i < rows; i++) {
+        int row_offset = i * cols;
+
+        float max_val = -std::numeric_limits<float>::infinity();
+        for(int j = 0; j < cols; j++) {
+            max_val = std::max(max_val, a->data[row_offset + j]);
+        }
+
+        float sum = 0.0f;
+        for(int j = 0; j < cols; j++) {
+            float e = std::exp(a->data[row_offset + j] - max_val);
+            result->data[row_offset + j] = e;
+            sum += e;
+        }
+
+        for(int j = 0; j < cols; j++) {
+            result->data[row_offset + j] /= sum;
+        }
+    }
+    
+    return result;
+
+}
+
 TensorPtr mse_loss(const TensorPtr& pred, float target_value){
     TensorPtr loss = std::make_shared<Tensor>(std::vector<int> {1});
     float diff = pred->data[0] - target_value;

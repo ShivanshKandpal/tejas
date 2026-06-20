@@ -38,3 +38,6 @@ jobs:
 
     - name: Run Gradient Check
       run: ./build/test_gradcheck
+
+    - name: Run Attention Forward Pass
+      run: ./build/attention

@@ -500,3 +500,23 @@ void sgd_step(const TensorPtr& param, float lr){
         param->data[i] -= lr * param->grad->data[i];
     }
 }
+
+TensorPtr scale(const TensorPtr& a, float scalar) {
+    TensorPtr result = std::make_shared<Tensor>(a->shape);
+    for(int i = 0; i < a->numel(); i++){
+        result->data[i] = a->data[i] * scalar;
+    }
+
+    result->_prev = {a};
+
+    if(a->requires_grad){
+        result->requires_grad = true;
+        result->backward_fn = [a, result, scalar](){
+            if(a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+            for(int i = 0; i < a->numel(); i++) {
+                a->grad->data[i] += result->grad->data[i] * scalar;
+            }
+        };
+    }
+    return result;
+};

@@ -61,6 +61,7 @@ TensorPtr transpose(const TensorPtr& a);
 TensorPtr transpose_raw(const TensorPtr& a);
 TensorPtr sum(const TensorPtr& a);
 TensorPtr softmax(const TensorPtr& a);
+TensorPtr scale(const TensorPtr& a, float scalar);
 TensorPtr mse_loss(const TensorPtr& pred, float target_val);
 void sgd_step(const TensorPtr& param, float lr);
 

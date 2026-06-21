@@ -405,6 +405,13 @@ void Tensor::backward(){
 
 TensorPtr transpose_raw(const TensorPtr& a){
     assert(a->shape.size() == 2);
+    if(a->device == Device::CUDA) {
+        #ifdef USE_CUDA
+            return cuda_transpose_wrapper(a);
+        #else
+            throw std::runtime_error("Tejas was not compiled with CUDA support. ");
+        #endif
+    }
     TensorPtr result = std::make_shared<Tensor>(std::vector<int>{a->shape[1],a->shape[0]});
     for(int i = 0;i<a->shape[0];i++){
         for(int j = 0;j<a->shape[1];j++){
@@ -501,12 +508,26 @@ void sgd_step(const TensorPtr& param, float lr){
     }
 }
 
-TensorPtr scale(const TensorPtr& a, float scalar) {
+TensorPtr scale_raw(const TensorPtr& a, float scalar) {
+    if(a->device == Device::CUDA) {
+        #ifdef USE_CUDA
+            return cuda_scale_wrapper(a, scalar);
+        #else 
+            throw std::runtime_error("Tejas was not compiled with CUDA support. ");
+        #endif
+    }
+
     TensorPtr result = std::make_shared<Tensor>(a->shape);
     for(int i = 0; i < a->numel(); i++){
         result->data[i] = a->data[i] * scalar;
     }
+    
+    return result;
+}
 
+TensorPtr scale(const TensorPtr& a, float scalar) {
+    
+    TensorPtr result = scale_raw(a, scalar);
     result->_prev = {a};
 
     if(a->requires_grad){

@@ -211,3 +211,60 @@ TensorPtr cuda_softmax_wrapper(const TensorPtr& a) {
 
     return result;
 }
+
+// transpose kernel
+
+__global__ void transpose_kernel(const float* input, float* output, int rows, int cols) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if(row < rows && col < cols) {
+        output[col * rows + row] = input[row * cols + col];
+    }
+}
+
+//transpose wrapper
+
+TensorPtr cuda_transpose_wrapper(const TensorPtr& a) {
+    assert(a->shape.size() == 2);
+    int rows = a->shape[0];
+    int cols = a->shape[1];
+
+    TensorPtr result = std::make_shared<Tensor>(std::vector<int>{cols, rows});
+    result->device = Device::CUDA;
+    cudaMalloc(&result->gpu_data, a->numel() * sizeof(float));
+
+    dim3 threads(16, 16);
+    dim3 blocks((cols + 15) / 16, (rows + 15) / 16);
+
+    transpose_kernel<<<blocks, threads>>>(a->gpu_data, result->gpu_data, rows, cols);
+    cudaDeviceSynchronize();
+
+    return result;
+
+}
+
+//scale kernel
+
+__global__ void scale_kernel(const float* input, float* output, float scalar, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if(i < n){
+        output[i] = input[i] * scalar;
+    }
+}
+
+//scale wrapper
+
+TensorPtr cuda_scale_wrapper(const TensorPtr& a, float scalar) {
+    TensorPtr result = std::make_shared<Tensor>(a->shape);
+    result->device = Device::CUDA;
+    cudaMalloc(&result->gpu_data, a->numel() * sizeof(float));
+
+    int threads = 256;
+    int blocks = (a->numel() + threads - 1) / threads;
+    scale_kernel<<<blocks, threads>>>(a->gpu_data, result->gpu_data, scalar, a->numel());
+    cudaDeviceSynchronize();
+
+    return result;
+}

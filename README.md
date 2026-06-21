@@ -36,8 +36,8 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 * Automatic CPU/CUDA dispatch based on tensor device
 
 **Tensor operations**
-* `add`, `multiply`, `relu`, `transpose`, `sum`, `softmax`
-* CUDA implementations for `add`, `multiply`, `relu`, and `softmax`
+* `add`, `multiply`, `relu`, `scale`, `transpose`, `sum`, `softmax`
+* CUDA implementations for `add`, `multiply`, `scale`, `transpose`, `relu`, and `softmax`
 * Shared-memory reduction kernel for row-wise softmax
 
 **Autograd engine**
@@ -54,6 +54,9 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 * Converges from loss ~1.68 to ~0 within 100 epochs
 * Exercises the full autograd engine, including forward propagation, backward propagation, and parameter updates
 
+**Transformer Components**
+* Single-head attention forward pass (`Q @ K^T / sqrt(d_k) → softmax → @ V`)
+* CPU and GPU implementations verified to match within 1e-3 relative error
 
 ## Benchmarks
 
@@ -123,6 +126,7 @@ make -j4
 # Run tests
 ./build/test_tensor
 ./build/xor
+./build/test_gradcheck
 ./build/test_parity    # GPU only
 ./build/test_dispatch  # GPU only
 ```
@@ -131,7 +135,7 @@ make -j4
 
 ### Core Tensor Library
 - [x] Tensor struct with shape and strides
-- [x] Elementwise ops (add, multiply, relu, transpose, sum)
+- [x] Elementwise ops (add, multiply, relu, transpose, sum, scale)
 - [ ] Broadcasting
 - [ ] Tensor slicing and views
 - [ ] Serialization
@@ -139,7 +143,7 @@ make -j4
 ### Autograd
 - [x] Reverse-mode autograd engine
 - [x] Topological graph traversal
-- [ ] Gradient checking via finite differences
+- [x] Gradient checking via finite differences
 - [x] Softmax
 - [ ] Additional ops (GELU, LayerNorm)
 
@@ -154,20 +158,27 @@ make -j4
 - [x] Naive CUDA matmul
 - [x] Shared-memory tiled matmul
 - [x] CPU vs GPU benchmarks
-- [x] CUDA elementwise kernels
-- [x] CUDA reductions
+- [x] CUDA elementwise kernels (add, multiply, relu, scale)
+- [x] CUDA softmax kernel (parallel reduction)
+- [x] CUDA transpose kernel
 - [x] Device abstraction (`CPU` / `CUDA`)
 - [x] GPU tensor storage
+
+### Transformer Components
+- [x] Single-head attention forward pass (CPU + GPU verified)
+- [ ] Broadcasting for bias addition
+- [ ] Multi-head attention
+- [ ] One full transformer block (attention + LayerNorm + FFN)
+- [ ] Load pretrained weights and run inference
 
 ### Neural Network Components
 - [x] XOR MLP demo
 - [x] SGD optimizer
 - [ ] Linear layer abstraction
 - [ ] Optimizer API (Adam, AdamW)
-- [ ] MLP training example on MNIST
+- [ ] MLP training on real dataset
 
 ### Long-Term
-- [ ] Small transformer forward pass
-- [ ] Multi-head attention kernel
-- [ ] Caching allocator
+- [ ] Caching memory allocator
 - [ ] cuBLAS backend
+- [ ] Full GPU autograd

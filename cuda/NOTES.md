@@ -209,3 +209,31 @@ sdata[tid] = 0.0f;
 ```
 
 These values do not affect the final result, allowing the same reduction code to work for arbitrary row sizes while keeping the reduction tree balanced.
+
+## 6. Transpose Kernel: Coalescing Trade-off
+
+Naive GPU transpose has an inherent coalescing problem, either the read 
+or the write will be strided. With x→columns mapping, reads from input 
+are coalesced but writes to output (col*rows + row) are strided.
+
+The optimized solution uses shared memory tiling: load a tile coalesced 
+into shared memory, then write coalesced from shared memory to output. 
+I have planned this as future optimization, my reasoning is that current naive kernel is correct and fast enough for attention dimensions (d_k ≤ 128), where the strided
+write overhead is negligible compared to the matmul kernels surrounding it.
+
+
+## 7. Attention: Putting It All Together
+
+Single-head attention exercises every kernel in the library in sequence:
+```
+input → matmul(W_q) → Q  [seq_len, d_k]
+input → matmul(W_k) → K  [seq_len, d_k]
+input → matmul(W_v) → V  [seq_len, d_k]
+
+scores = matmul(Q, transpose(K))     [seq_len, seq_len]
+scores = scale(scores, 1/sqrt(d_k))  [seq_len, seq_len]
+attn   = softmax(scores)             [seq_len, seq_len]
+output = matmul(attn, V)             [seq_len, d_k]
+```
+CPU and GPU implementations produce identical results within 1e-3 
+relative error, verified by hardware parity test on RTX 2060.

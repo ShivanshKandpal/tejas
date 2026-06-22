@@ -31,6 +31,8 @@ bool gradient_check(
         TensorPtr out_minus = forward_fn(input);
         float loss_minus = out_minus->data[0];
 
+        input->data[i] = original_val;
+
         float numerical_grad = (loss_plus - loss_minus) / (2 * eps);
         float analytical_grad = analytical_grads[i];
 
@@ -72,6 +74,10 @@ int main() {
     bool relu_pass = gradient_check(a, [&](TensorPtr x){ return sum(relu(x)); });
     std::cout << (relu_pass ? "[PASS]" : "[FAIL]") << " ReLU\n";
 
+    bool softmax_pass = gradient_check(a, [&](TensorPtr x){ 
+    return sum(multiply(softmax(x), b)); });
+    std::cout << (softmax_pass ? "[PASS]" : "[FAIL]") << " Softmax\n";
+
     bool add_pass = gradient_check(a, [&](TensorPtr x){ return sum(add(x, b)); });
     std::cout << (add_pass ? "[PASS]" : "[FAIL]") << " Add\n";
 
@@ -80,14 +86,45 @@ int main() {
 
     bool matmul_pass = gradient_check(a, [&](TensorPtr x){ return sum(matmul(x, b)); });
     std::cout << (matmul_pass ? "[PASS]" : "[FAIL]") << " Matmul\n";
+    
+    bool transpose_pass = gradient_check(a, [&](TensorPtr x){ return sum(transpose(x)); });
 
-    if(relu_pass && add_pass && mul_pass && matmul_pass) {
+    std::cout << (transpose_pass ? "[PASS]" : "[FAIL]") << " Transpose\n";
+
+
+    // attention gradient check
+    int seq_len = 4;
+    int d_model = 8;
+    int d_k     = 4;
+    TensorPtr W_q = std::make_shared<Tensor>(std::vector<int>{d_model, d_k}); W_q->randomize(1.0f);
+    TensorPtr W_k = std::make_shared<Tensor>(std::vector<int>{d_model, d_k}); W_k->randomize(1.0f);
+    TensorPtr W_v = std::make_shared<Tensor>(std::vector<int>{d_model, d_k}); W_v->randomize(1.0f);
+
+    TensorPtr X = std::make_shared<Tensor>(std::vector<int>{seq_len, d_model}); X->randomize(1.0f);
+    X->requires_grad = true;
+    auto attn_forward = [&](TensorPtr input){
+        TensorPtr Q = matmul(input, W_q);
+        TensorPtr K = matmul(input, W_k);
+        TensorPtr V = matmul(input, W_v);
+
+        TensorPtr scores = matmul(Q, transpose(K));
+        scores = scale(scores, 1.0f / std::sqrt(d_k));
+
+        TensorPtr attn = softmax(scores);
+
+        return sum(matmul(attn, V));
+    };
+
+    bool attn_pass = gradient_check(X, attn_forward);
+    std::cout << (attn_pass ? "[PASS]" : "[FAIL]") << " Attention Block\n";
+
+    if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass) {
         std::cout << "\nSUCCESS: Autograd calculus perfectly matches numerical approximations!\n";
     } else {
         std::cout << "\nFAILURE: Autograd engine contains calculus errors.\n";
         assert(false);
     }
-
+    
     return 0;
 
 }

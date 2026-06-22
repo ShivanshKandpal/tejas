@@ -422,7 +422,6 @@ TensorPtr transpose_raw(const TensorPtr& a){
 }
 
 TensorPtr transpose(const TensorPtr& a){
-    assert(a->shape.size() == 2);
     TensorPtr result = transpose_raw(a);
     result->_prev = {a};
     if(a->requires_grad){
@@ -448,9 +447,8 @@ void Tensor::zero_grad(){
     grad = nullptr;
 }
 
-TensorPtr softmax(const TensorPtr& a) {
+TensorPtr softmax_raw(const TensorPtr& a) {
     assert(a->shape.size() <= 2);
-
     if(a->device == Device::CUDA) {
         #ifdef USE_CUDA
             return cuda_softmax_wrapper(a);
@@ -483,7 +481,43 @@ TensorPtr softmax(const TensorPtr& a) {
             result->data[row_offset + j] /= sum;
         }
     }
+    return result;
+}
+
+TensorPtr softmax(const TensorPtr& a) {
+    TensorPtr result = softmax_raw(a);
     
+    result->_prev = {a};
+    if(a->requires_grad) {
+        result->requires_grad = true;
+        result->backward_fn = [a, result](){
+            if(a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+            
+            int rows = (a->shape.size() > 1) ? a->shape[0] : 1;
+            int cols = (a->shape.size() > 1) ? a->shape[1] : a->shape[0];
+
+            for(int i = 0; i < rows; i++) {
+                int row_offset = i * cols;
+
+                float dot = 0.0f;
+                
+                for(int j = 0;j < cols; j++) {
+                    float rd = result->data[row_offset + j];
+                    float rgd = result->grad->data[row_offset + j];
+
+                    dot += rd * rgd;
+                }
+
+                for(int j = 0; j < cols; j++) {
+                    float rd = result->data[row_offset + j];
+                    float rgd = result->grad->data[row_offset + j];
+
+                    a->grad->data[row_offset + j] += rd * (rgd - dot);
+                }
+
+            }
+        };
+    }
     return result;
 
 }

@@ -102,7 +102,7 @@ This table demonstrates the fundamental hardware architecture differences betwee
 ## Design notes
 
 **Deep Dive into Hardware Optimizations**
-For a detailed breakdown of the systems engineering lessons learned while writing the backend kernels (including memory coalescing, shared memory tiling, cache blocking, and the "-O3 compiler illusion"), please read the extensive notes in [`cuda/NOTES.md`](cuda/NOTES.md).
+For a detailed breakdown of the systems engineering lessons learned while writing the backend kernels (including memory coalescing, shared memory tiling, cache blocking, and the "-O3 compiler illusion"), please read the extensive notes in [`NOTES.md`](NOTES.md).
 
 **Why `shared_ptr` everywhere**
 Backward functions need to reference the tensors that produced them, but those tensors may go out of scope before `backward()` is called. Each tensor holds `shared_ptr` references to its inputs (`_prev`), which keeps the entire computation graph alive for as long as the output tensor is alive. This is the exact approach PyTorch uses internally (`shared_ptr<TensorImpl>`).

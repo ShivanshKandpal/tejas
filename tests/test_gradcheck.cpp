@@ -118,7 +118,22 @@ int main() {
     bool attn_pass = gradient_check(X, attn_forward);
     std::cout << (attn_pass ? "[PASS]" : "[FAIL]") << " Attention Block\n";
 
-    if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass) {
+    TensorPtr X_mat = std::make_shared<Tensor>(std::vector<int>{4, 4});
+    X_mat->randomize(1.0f);
+    X_mat->requires_grad = true;
+
+    TensorPtr b_vec = std::make_shared<Tensor>(std::vector<int>{1, 4});
+    b_vec->randomize(1.0f);
+    b_vec->requires_grad = true;
+
+    bool broad_pass_X = gradient_check(X_mat, [&](TensorPtr x) { return sum(add(x, b_vec)); });
+
+    bool broad_pass_b = gradient_check(b_vec, [&](TensorPtr x) { return sum(add(X_mat, x)); });
+
+    bool broad_pass = broad_pass_b && broad_pass_X;
+    std::cout << (broad_pass ? "[PASS]" : "[FAIL]") << " Broadcasting Add\n";
+
+    if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass && broad_pass) {
         std::cout << "\nSUCCESS: Autograd calculus perfectly matches numerical approximations!\n";
     } else {
         std::cout << "\nFAILURE: Autograd engine contains calculus errors.\n";

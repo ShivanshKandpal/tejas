@@ -1,4 +1,5 @@
 #include "tensor.h"
+#include "nn.h"
 #include <iostream>
 #include <functional>
 #include <cmath>
@@ -138,7 +139,29 @@ int main() {
     bool broad_pass = broad_pass_b && broad_pass_X;
     std::cout << (broad_pass ? "[PASS]" : "[FAIL]") << " Broadcasting Add\n";
 
-    if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass && broad_pass) {
+    // Feed forward Network (FFN) Check
+
+    int d_ff = 16;
+    TensorPtr ffn_input =
+        std::make_shared<Tensor>(
+            std::vector<int>{seq_len, d_model}
+        );
+    ffn_input->randomize(1.0f);
+    ffn_input->requires_grad = true;
+    tejas::nn::Linear ffn_1(d_model, d_ff);
+    tejas::nn::Linear ffn_2(d_ff, d_model);
+
+    auto ffn_forward = [&](TensorPtr input) {
+        auto hidden = relu(ffn_1.forward(input));
+        auto out = ffn_2.forward(hidden);
+        return sum(out);
+    };
+
+    bool ffn_pass = gradient_check(ffn_input, ffn_forward);
+    
+    std::cout << (ffn_pass ? "[PASS]" : "[FAIL]") << " Feed-Forward Network\n";
+
+    if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass && broad_pass && ffn_pass) {
         std::cout << "\nSUCCESS: Autograd calculus perfectly matches numerical approximations!\n";
     } else {
         std::cout << "\nFAILURE: Autograd engine contains calculus errors.\n";

@@ -38,6 +38,7 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 **Tensor operations**
 * `add`, `multiply`, `relu`, `scale`, `transpose`, `sum`, `softmax`
 * CUDA implementations for `add`, `multiply`, `scale`, `transpose`, `relu`, and `softmax`
+* Basic bias-style broadcasting for `add` (`[N, M] + [1, M]`)
 * Shared-memory reduction kernel for row-wise softmax
 
 **Autograd engine**
@@ -133,7 +134,8 @@ make -j4
 ### Core Tensor Library
 - [x] Tensor struct with shape and strides
 - [x] Elementwise ops (add, multiply, relu, transpose, sum, scale)
-- [ ] Broadcasting
+- [x] Basic broadcasting for neural-network bias addition
+- [ ] General N-dimensional broadcasting
 - [ ] Tensor slicing and views
 - [ ] Serialization
 
@@ -163,7 +165,7 @@ make -j4
 
 ### Transformer Components
 - [x] Single-head attention forward pass (CPU + GPU verified)
-- [ ] Broadcasting for bias addition
+- [x] Broadcasting for bias addition
 - [ ] Multi-head attention
 - [ ] One full transformer block (attention + LayerNorm + FFN)
 - [ ] Load pretrained weights and run inference

@@ -39,25 +39,32 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 * `add`, `multiply`, `relu`, `scale`, `transpose`, `sum`, `softmax`
 * CUDA implementations for `add`, `multiply`, `scale`, `transpose`, `relu`, and `softmax`
 * Basic bias-style broadcasting for `add` (`[N, M] + [1, M]`)
-* Shared-memory reduction kernel for row-wise softmax
+* Shared-memory tree-reduction kernel for row-wise softmax
 
 **Autograd engine**
 * Reverse-mode automatic differentiation over a dynamically built computation graph
 * Each tensor stores `shared_ptr` references to its inputs (`_prev`), keeping the graph alive for backward passes
 * `backward()` performs a topological sort and calls each node's `backward_fn` in reverse order
-* Gradients implemented for matmul, add, multiply, relu, transpose, and sum
+* Gradients implemented for matmul, add, multiply, relu, transpose, sum, scale, and softmax
+* Gradient checking via finite differences
 * CPU autograd support with forward-only CUDA execution
 
-**Training demo**
+**Training demos**
 * A 2-layer MLP trained on XOR using only this library
 * Forward pass: `matmul -> add -> relu -> matmul -> add -> MSE loss`
 * Trained with SGD implemented from scratch
 * Converges from loss ~1.68 to ~0 within 100 epochs
 * Exercises the full autograd engine, including forward propagation, backward propagation, and parameter updates
 
-**Transformer Components**
-* Single-head attention forward pass (`Q @ K^T / sqrt(d_k) → softmax → @ V`)
-* CPU and GPU implementations verified to match within 1e-3 relative error
+**Neural network layers**
+* `tejas::nn::Linear`
+* Parameter collection via `parameters()`
+
+**Transformer components**
+* Single-head scaled dot-product attention
+* Feed-forward network (FFN) built from `Linear` and `ReLU`
+* CPU and GPU attention implementations verified to match within 1e-3 relative error
+* Attention and FFN blocks verified using numerical gradient checking   
 
 ## Benchmarks
 
@@ -135,6 +142,7 @@ make -j4
 - [x] Tensor struct with shape and strides
 - [x] Elementwise ops (add, multiply, relu, transpose, sum, scale)
 - [x] Basic broadcasting for neural-network bias addition
+- [x] Softmax
 - [ ] General N-dimensional broadcasting
 - [ ] Tensor slicing and views
 - [ ] Serialization
@@ -143,7 +151,6 @@ make -j4
 - [x] Reverse-mode autograd engine
 - [x] Topological graph traversal
 - [x] Gradient checking via finite differences
-- [x] Softmax
 - [ ] Additional ops (GELU, LayerNorm)
 
 ### CPU Backend
@@ -165,7 +172,7 @@ make -j4
 
 ### Transformer Components
 - [x] Single-head attention forward pass (CPU + GPU verified)
-- [x] Broadcasting for bias addition
+- [x] Feed-forward network (FFN)
 - [ ] Multi-head attention
 - [ ] One full transformer block (attention + LayerNorm + FFN)
 - [ ] Load pretrained weights and run inference
@@ -173,11 +180,13 @@ make -j4
 ### Neural Network Components
 - [x] XOR MLP demo
 - [x] SGD optimizer
-- [ ] Linear layer abstraction
+- [x] Linear layer abstraction
+- [ ] LayerNorm
 - [ ] Optimizer API (Adam, AdamW)
 - [ ] MLP training on real dataset
 
 ### Long-Term
-- [ ] Caching memory allocator
-- [ ] cuBLAS backend
 - [ ] Full GPU autograd
+- [ ] cuBLAS backend
+- [ ] Caching memory allocator
+

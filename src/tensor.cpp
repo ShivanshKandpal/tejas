@@ -247,7 +247,7 @@ TensorPtr matmul_tiled(const TensorPtr& a, const TensorPtr& b){
 }
 
 TensorPtr add_raw(const TensorPtr& a, const TensorPtr& b) {
-    assert(a->shape == b->shape);
+    // assert(a->shape == b->shape);
     if(a->device != b->device) throw std::runtime_error("Device mismatch in add. ");
 
     if(a->device == Device::CUDA) {
@@ -257,12 +257,25 @@ TensorPtr add_raw(const TensorPtr& a, const TensorPtr& b) {
         throw std::runtime_error("Tejas was compiled without CUDA support.");
 #endif  
     }
-
-    TensorPtr result = std::make_shared<Tensor>(a->shape);
-    for(int i =0;i<a->numel();i++){
-        result->data[i] = a->data[i] + b->data[i];
+    if(a->shape == b->shape) {
+        TensorPtr result = std::make_shared<Tensor>(a->shape);
+        for(int i =0;i<a->numel();i++){
+            result->data[i] = a->data[i] + b->data[i];
+        }
+        return result;
     }
-    return result;
+
+    else if (a->shape.size() == 2 && b->shape.size() <= 2 && b->shape.back() == a->shape[1]) {
+        TensorPtr result = std::make_shared<Tensor>(a->shape);
+        int N = a->shape[1];
+        for(int i = 0;i < a->numel(); i++) {
+            result->data[i] = a->data[i] + b->data[i % N];
+        }
+        return result;
+    }
+    else {
+        throw std::runtime_error("Shapes are not compatible for addition or broadcasting. ");   
+    }
 }
 
 TensorPtr add(const TensorPtr& a, const TensorPtr& b){
@@ -279,8 +292,16 @@ TensorPtr add(const TensorPtr& a, const TensorPtr& b){
             }
             if(b->requires_grad){
                 if(b->grad == nullptr) b->grad = std::make_shared<Tensor>(b->shape);
-                for(int i = 0;i<b->numel();i++){
-                    b->grad->data[i] += result->grad->data[i];
+                if(a->shape != b->shape) {
+                    int N = a->shape[1];
+                    for(int i = 0; i < a->numel(); i++) {
+                        b->grad->data[i % N] += result->grad->data[i];
+                    }
+                }
+                else {
+                    for(int i = 0;i<b->numel();i++){
+                        b->grad->data[i] += result->grad->data[i];
+                    }
                 }
             }
         };

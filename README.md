@@ -101,14 +101,11 @@ This table demonstrates the fundamental hardware architecture differences betwee
 
 ## Design notes
 
-**Deep Dive into Hardware Optimizations**
-For a detailed breakdown of the systems engineering lessons learned while writing the backend kernels (including memory coalescing, shared memory tiling, cache blocking, and the "-O3 compiler illusion"), please read the extensive notes in [`NOTES.md`](NOTES.md).
+The project includes two additional documents that explain the reasoning behind the implementation:
 
-**Why `shared_ptr` everywhere**
-Backward functions need to reference the tensors that produced them, but those tensors may go out of scope before `backward()` is called. Each tensor holds `shared_ptr` references to its inputs (`_prev`), which keeps the entire computation graph alive for as long as the output tensor is alive. This is the exact approach PyTorch uses internally (`shared_ptr<TensorImpl>`).
+- **[DESIGN.md](DESIGN.md)** — architectural decisions and autograd internals, including graph lifetime management with `shared_ptr`, the `_raw` vs autograd-tracked operation split, backend dispatch, and other implementation tradeoffs.
 
-**Raw vs autograd-tracked ops**
-Internal operations (`matmul_raw`, `transpose_raw`, etc.) perform pure computation with no graph tracking. The public versions (`matmul`, `transpose`, etc.) wrap these and additionally set `_prev` and `backward_fn`. This separation prevents backward passes from accidentally building new graph nodes during gradient computation.
+- **[NOTES.md](NOTES.md)** — systems programming and CUDA optimization notes, including memory coalescing, shared memory tiling, parallel reductions, cache behavior, CPU/GPU benchmarking, and attention kernel implementation details.
 
 ## Build & run
 

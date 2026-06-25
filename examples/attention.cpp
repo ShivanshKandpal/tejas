@@ -1,12 +1,13 @@
 #include "tensor.h"
+#include "nn.h"
 #include <iostream>
 #include <cmath>   
 #include <cassert> 
 
-TensorPtr attention(TensorPtr input, TensorPtr W_q, TensorPtr W_k, TensorPtr W_v, float d_k) {
-    TensorPtr Q = matmul(input, W_q);
-    TensorPtr K = matmul(input, W_k);
-    TensorPtr V = matmul(input, W_v);
+TensorPtr attention(TensorPtr input, tejas::nn::Linear& Wq, tejas::nn::Linear& Wk, tejas::nn::Linear& Wv, float d_k) {
+    TensorPtr Q = Wq.forward(input);
+    TensorPtr K = Wk.forward(input);
+    TensorPtr V = Wv.forward(input);
 
     TensorPtr scores = matmul(Q, transpose(K));
     scores = scale(scores, 1.0f / std::sqrt(d_k));
@@ -19,26 +20,26 @@ TensorPtr attention(TensorPtr input, TensorPtr W_q, TensorPtr W_k, TensorPtr W_v
 
 int main() {
 
-    std::cout <<"=== Tejas Transformer Attention Block ===\n";
+    std::cout <<"=== Tejas Transformer Attention Block (with bias) ===\n";
 
     int seq_len = 4;
     int d_model = 8;
     int d_k     = 4;
-    TensorPtr W_q = std::make_shared<Tensor>(std::vector<int>{d_model, d_k}); W_q->randomize();
-    TensorPtr W_k = std::make_shared<Tensor>(std::vector<int>{d_model, d_k}); W_k->randomize();
-    TensorPtr W_v = std::make_shared<Tensor>(std::vector<int>{d_model, d_k}); W_v->randomize();
+    tejas::nn::Linear q_proj(d_model, d_k);
+    tejas::nn::Linear k_proj(d_model, d_k);
+    tejas::nn::Linear v_proj(d_model, d_k);
 
     TensorPtr input = std::make_shared<Tensor>(std::vector<int>{seq_len, d_model}); input->randomize();
 
-    TensorPtr out_cpu = attention(input, W_q, W_k, W_v, (float)d_k);
+    TensorPtr out_cpu = attention(input, q_proj, k_proj, v_proj, (float)d_k);
     #ifdef USE_CUDA
-    TensorPtr d_W_q = W_q->cuda();
-    TensorPtr d_W_k = W_k->cuda();
-    TensorPtr d_W_v = W_v->cuda();
+    q_proj.cuda();
+    k_proj.cuda();
+    v_proj.cuda();
 
     TensorPtr d_input = input->cuda();
 
-    TensorPtr out_gpu = attention(d_input, d_W_q, d_W_k, d_W_v, (float)d_k)->cpu();
+    TensorPtr out_gpu = attention(d_input, q_proj, k_proj, v_proj, (float)d_k)->cpu();
 
     out_cpu->print();
     out_gpu->print();

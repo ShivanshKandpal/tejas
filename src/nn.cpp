@@ -24,4 +24,14 @@ namespace tejas::nn {
         return {weight, bias};
     }
 
+    void Linear::cuda() {
+        weight = weight->cuda();
+        bias = bias->cuda();
+    }
+
+    void Linear::cpu() {
+        weight = weight->cpu();
+        bias = bias->cpu();
+    }
+
 }

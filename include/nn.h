@@ -10,6 +10,8 @@ namespace tejas::nn {
 
             Linear(int in_features, int out_features);
 
+            void cuda();
+            void cpu();
             TensorPtr forward(const TensorPtr& x);
             
             std::vector<TensorPtr> parameters() const;

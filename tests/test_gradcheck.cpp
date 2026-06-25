@@ -97,21 +97,17 @@ int main() {
     int seq_len = 4;
     int d_model = 8;
     int d_k     = 4;
-    TensorPtr W_q = std::make_shared<Tensor>(std::vector<int>{d_model, d_k}); W_q->randomize();
-    TensorPtr W_k = std::make_shared<Tensor>(std::vector<int>{d_model, d_k}); W_k->randomize();
-    TensorPtr W_v = std::make_shared<Tensor>(std::vector<int>{d_model, d_k}); W_v->randomize();
-
-    TensorPtr b_q = std::make_shared<Tensor>(std::vector<int>{1, d_k}); b_q->randomize();
-    TensorPtr b_k = std::make_shared<Tensor>(std::vector<int>{1, d_k}); b_k->randomize();
-    TensorPtr b_v = std::make_shared<Tensor>(std::vector<int>{1, d_k}); b_v->randomize();
+    tejas::nn::Linear q_proj(d_model, d_k);
+    tejas::nn::Linear k_proj(d_model, d_k);
+    tejas::nn::Linear v_proj(d_model, d_k);
 
     TensorPtr X = std::make_shared<Tensor>(std::vector<int>{seq_len, d_model}); X->randomize();
     X->requires_grad = true;
 
     auto attn_forward = [&](TensorPtr input){
-        TensorPtr Q = add(matmul(input, W_q), b_q);
-        TensorPtr K = add(matmul(input, W_k), b_k);
-        TensorPtr V = add(matmul(input, W_v), b_v);
+        TensorPtr Q = q_proj.forward(input);
+        TensorPtr K = k_proj.forward(input);
+        TensorPtr V = v_proj.forward(input);
 
         TensorPtr scores = matmul(Q, transpose(K));
         scores = scale(scores, 1.0f / std::sqrt(d_k));

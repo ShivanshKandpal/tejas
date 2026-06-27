@@ -677,3 +677,35 @@ TensorPtr layernorm(const TensorPtr& x, const TensorPtr& gamma, const TensorPtr&
     }
     return out;
 }
+
+TensorPtr gelu_raw(const TensorPtr& a) {
+
+    TensorPtr result = std::make_shared<Tensor>(a->shape);
+
+    for(int i = 0; i < a->numel(); i++) {
+        float val = a->data[i];
+        float sig = 1.0f / (1.0f + std::exp(-1.702f * val));
+        result->data[i] = val * sig;
+    }
+    return result;
+}
+
+TensorPtr gelu(const TensorPtr& a) {
+    TensorPtr result = gelu_raw(a);
+
+    result->_prev = {a};
+    if(a->requires_grad) {
+        result->requires_grad = true;
+        result->backward_fn = [a, result] {
+            if(a->grad == nullptr) a->grad = std::make_shared<Tensor>(a->shape);
+
+            for(int i = 0; i < a->numel(); i++) {
+                float x = a->data[i];
+                float sig = (1.0f / (1.0f + std::exp(-1.702 * x)));
+                float local_grad = sig * (1 + x * 1.702 * (1-sig));
+                a->grad->data[i] += result->grad->data[i] * local_grad;
+            }
+        };
+    }
+    return result;
+}

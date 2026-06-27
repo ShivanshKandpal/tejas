@@ -219,6 +219,15 @@ int main() {
         }
     }
 
+    {
+        TensorPtr x = std::make_shared<Tensor>(std::vector<int>{4, 8});
+        x->randomize();
+        auto fn = [&](TensorPtr inp) { return sum(gelu(inp)); };
+        bool ok = gradient_check(x, fn);
+        std::cout << (ok ? "[PASS]" : "[FAIL]") << " GELU\n";
+        assert(ok);
+    }
+    
     if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass && broad_pass && ffn_pass) {
         std::cout << "\nSUCCESS: Autograd calculus perfectly matches numerical approximations!\n";
     } else {

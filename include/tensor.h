@@ -64,5 +64,5 @@ TensorPtr softmax(const TensorPtr& a);
 TensorPtr scale(const TensorPtr& a, float scalar);
 TensorPtr mse_loss(const TensorPtr& pred, float target_val);
 void sgd_step(const TensorPtr& param, float lr);
-
+TensorPtr layernorm(const TensorPtr& x, const TensorPtr& gamma, const TensorPtr& beta, float eps = 1e-5f);
 

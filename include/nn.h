@@ -17,4 +17,20 @@ namespace tejas::nn {
             std::vector<TensorPtr> parameters() const;
 
     };
+    class LayerNorm {
+        public:
+            TensorPtr gamma; 
+            TensorPtr beta;  
+            float eps;
+
+            LayerNorm(int normalized_shape, float eps = 1e-5f);
+            
+            TensorPtr forward(const TensorPtr& x);
+            
+            std::vector<TensorPtr> parameters() const;
+            
+            void cuda();
+            void cpu();
+        };
 }
+

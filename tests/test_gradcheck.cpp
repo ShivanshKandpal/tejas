@@ -157,6 +157,68 @@ int main() {
     
     std::cout << (ffn_pass ? "[PASS]" : "[FAIL]") << " Feed-Forward Network\n";
 
+    // === LayerNorm Gradcheck ===
+    {
+        int M = 4, N = 8;
+
+        // test grad w.r.t. x
+        {
+            TensorPtr x = std::make_shared<Tensor>(std::vector<int>{M, N});
+            TensorPtr gamma = std::make_shared<Tensor>(std::vector<int>{N});
+            TensorPtr beta = std::make_shared<Tensor>(std::vector<int>{N});
+            x->randomize();
+            gamma->randomize();
+            beta->randomize();
+            gamma->requires_grad = false;
+            beta->requires_grad = false;
+
+            auto fn = [&](TensorPtr inp) {
+                return sum(layernorm(inp, gamma, beta));
+            };
+            bool ok = gradient_check(x, fn);
+            std::cout << (ok ? "[PASS]" : "[FAIL]") << " LayerNorm grad w.r.t. x\n";
+            assert(ok);
+        }
+
+        // test grad w.r.t. gamma
+        {
+            TensorPtr x = std::make_shared<Tensor>(std::vector<int>{M, N});
+            TensorPtr gamma = std::make_shared<Tensor>(std::vector<int>{N});
+            TensorPtr beta = std::make_shared<Tensor>(std::vector<int>{N});
+            x->randomize();
+            gamma->randomize();
+            std::fill(beta->data.begin(), beta->data.end(), 0.0f);
+            x->requires_grad = false;
+            beta->requires_grad = false;
+
+            auto fn = [&](TensorPtr g) {
+                return sum(layernorm(x, g, beta));
+            };
+            bool ok = gradient_check(gamma, fn);
+            std::cout << (ok ? "[PASS]" : "[FAIL]") << " LayerNorm grad w.r.t. gamma\n";
+            assert(ok);
+        }
+
+        // test grad w.r.t. beta
+        {
+            TensorPtr x = std::make_shared<Tensor>(std::vector<int>{M, N});
+            TensorPtr gamma = std::make_shared<Tensor>(std::vector<int>{N});
+            TensorPtr beta = std::make_shared<Tensor>(std::vector<int>{N});
+            x->randomize();
+            std::fill(gamma->data.begin(), gamma->data.end(), 1.0f);
+            beta->randomize();
+            x->requires_grad = false;
+            gamma->requires_grad = false;
+
+            auto fn = [&](TensorPtr b) {
+                return sum(layernorm(x, gamma, b));
+            };
+            bool ok = gradient_check(beta, fn);
+            std::cout << (ok ? "[PASS]" : "[FAIL]") << " LayerNorm grad w.r.t. beta\n";
+            assert(ok);
+        }
+    }
+
     if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass && broad_pass && ffn_pass) {
         std::cout << "\nSUCCESS: Autograd calculus perfectly matches numerical approximations!\n";
     } else {

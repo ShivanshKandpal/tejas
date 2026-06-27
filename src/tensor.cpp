@@ -596,3 +596,84 @@ TensorPtr scale(const TensorPtr& a, float scalar) {
     }
     return result;
 };
+
+TensorPtr layernorm(const TensorPtr& x, const TensorPtr& gamma, const TensorPtr& beta, float eps) {
+    int M = x->shape[0];
+    int N = x->shape[1];
+    TensorPtr out = std::make_shared<Tensor>(x->shape);
+
+    std::shared_ptr<std::vector<float>> x_hat = std::make_shared<std::vector<float>>(x->numel());
+    std::shared_ptr<std::vector<float>> inv_std = std::make_shared<std::vector<float>>(M);
+
+    for(int i = 0; i < M; i++) {
+        float mean = 0.0f;
+        for(int j = 0; j < N; j++) mean += x->data[i * N + j];
+        mean /= N;
+
+        float var = 0.0f;
+        for(int j = 0; j < N; j++) {
+            float diff = x->data[i * N + j] - mean;
+            var += diff * diff;
+        }
+        var /= N;
+
+        float inv_stddev = 1.0f / std::sqrt(var + eps);
+        (*inv_std)[i] = inv_stddev;
+        
+        for(int j = 0; j < N; j++) {
+            int idx = i * N + j;
+            (*x_hat)[idx] = (x->data[idx] - mean) * inv_stddev; 
+            out->data[idx] = (*x_hat)[idx] * gamma->data[j] + beta->data[j];
+        }
+    }
+
+    out->_prev = {x, gamma, beta};
+
+    if (x->requires_grad || gamma->requires_grad || beta->requires_grad) {
+        out->requires_grad = true;
+        out->backward_fn = [x, gamma, beta, out, x_hat, inv_std, M, N]() {
+            if(gamma->requires_grad && gamma->grad == nullptr) gamma->grad = std::make_shared<Tensor>(gamma->shape);
+            if(beta->requires_grad && beta->grad == nullptr) beta->grad = std::make_shared<Tensor>(beta->shape);
+            if(x->requires_grad && x->grad == nullptr) x->grad = std::make_shared<Tensor>(x->shape);
+
+            for(int i = 0; i < M; i++) {
+                float sum_grad_xhat = 0.0f;
+                float sum_grad_xhat_xhat = 0.0f;
+
+                for(int j = 0; j < N; j++) {
+                    int idx = i * N + j;
+                    float grad_out = out->grad->data[idx];
+                    float x_hat_val = (*x_hat)[idx];
+
+                    if(gamma->requires_grad) {
+                        gamma->grad->data[j] += grad_out * x_hat_val;
+                    }
+
+                    if(beta->requires_grad) {
+                        beta->grad->data[j] += grad_out;
+                    }
+
+                    float grad_xhat = grad_out * gamma->data[j];
+
+                    sum_grad_xhat += grad_xhat;
+                    sum_grad_xhat_xhat += grad_xhat * x_hat_val;
+                }
+
+                if(x->requires_grad) {
+                    float inv = (*inv_std)[i];
+
+                    for(int j = 0; j < N; j++) {
+                        int idx = i * N + j;
+                        float grad_out = out->grad->data[idx];
+                        float grad_xhat = grad_out * gamma->data[j];
+                        float x_hat_val = (*x_hat)[idx];
+                        
+                        x->grad->data[idx] += (inv / N) * (N * grad_xhat - sum_grad_xhat - x_hat_val * sum_grad_xhat_xhat);
+                    }   
+                }
+
+            }
+        };
+    }
+    return out;
+}

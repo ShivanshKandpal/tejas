@@ -34,4 +34,31 @@ namespace tejas::nn {
         bias = bias->cpu();
     }
 
+    
+    LayerNorm::LayerNorm(int normalized_shape, float eps) : eps(eps) {
+        gamma = std::make_shared<Tensor>(std::vector<int>{1, normalized_shape});
+        for(int i = 0; i < gamma->numel(); i++) gamma->data[i] = 1.0f;
+        gamma->requires_grad = true;
+        beta = std::make_shared<Tensor>(std::vector<int>{1, normalized_shape});
+        beta->requires_grad = true;
+    }
+
+    TensorPtr LayerNorm::forward(const TensorPtr& x) {
+        return layernorm(x, gamma, beta, eps);
+    }
+
+    std::vector<TensorPtr> LayerNorm::parameters() const {
+        return {gamma, beta};
+    }
+
+    void LayerNorm::cuda() {
+        gamma = gamma->cuda();
+        beta = beta->cuda();
+    }
+
+    void LayerNorm::cpu() {
+        gamma = gamma->cpu();
+        beta = beta->cpu();
+    }
+
 }

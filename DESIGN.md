@@ -68,3 +68,19 @@ By loading `A[i][k]` once and making `j` the innermost loop, accesses to both `B
 For a 512×512 matrix on my i7-9750H, this reduced execution time from roughly 245 ms to around 12 ms.
 
 One of the more surprising lessons from this project was that on a modern CPU, fixing the memory access pattern mattered far more than manually managing the cache.
+
+## 6. Gradient Verification, Why finite differences
+
+Deriving gradients by hand is error-prone, especially for operations such as softmax and LayerNorm where every output depends on every input. Rather than trusting manual derivations, every differentiable operation in tejas is verified using finite-difference gradient checking. Numerical gradients are computed independently of the autograd engine and compared against analytical gradients produced during backpropagation. This caught several subtle bugs during development, including mistakes in broadcasting and an incorrect LayerNorm test where the chosen objective function was identically zero.
+
+## 7. Why cache Intermediate Values in Layernorm Backward
+
+LayerNorm's backward pass depends on the normalized activations (`x_hat`) and the inverse standard deviation (`inv_std`) computed during the forward pass. While both quantities could be recomputed during backpropagation, doing so would repeat work and complicate the implementation. Instead, tejas caches them during the forward pass and captures them inside the backward lambda.
+
+Unlike trainable tensors, these cached values never require gradients and are not part of the computation graph. They are therefore stored as `shared_ptr<std::vector<float>>` rather than `Tensor` objects, avoiding unnecessary graph nodes while still ensuring the data remains alive until `backward()` is called.
+
+The backward implementation follows the fused LayerNorm formulation used by modern deep learning frameworks. Rather than constructing the full Jacobian of the normalization operation, it first computes two row-wise reductions (`Σ grad_xhat` and `Σ grad_xhat · x_hat`) before performing a final linear pass over the row to compute the input gradients. This keeps the implementation efficient while remaining mathematically equivalent to the full derivative.
+
+## 8. Why make Layer Abstractions (Neural Network Modules)
+
+Primitive tensor operations (`matmul`, `add`, `layernorm`, etc.) are responsible for computation and autograd, while higher-level modules such as `Linear` and `LayerNorm` simply own trainable parameters and compose those operations. This separation keeps tensor operations reusable while providing an interface familiar to users of modern deep learning frameworks. Modules also expose a common `parameters()` interface and support in-place device transfers through `.cpu()` and `.cuda()`, allowing optimizers and training loops to operate on layers without knowledge of their internal implementation.

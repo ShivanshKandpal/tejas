@@ -148,7 +148,7 @@ int main() {
     tejas::nn::Linear ffn_2(d_ff, d_model);
 
     auto ffn_forward = [&](TensorPtr input) {
-        auto hidden = relu(ffn_1.forward(input));
+        auto hidden = gelu(ffn_1.forward(input));
         auto out = ffn_2.forward(hidden);
         return sum(out);
     };
@@ -227,7 +227,7 @@ int main() {
         std::cout << (ok ? "[PASS]" : "[FAIL]") << " GELU\n";
         assert(ok);
     }
-    
+
     if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass && broad_pass && ffn_pass) {
         std::cout << "\nSUCCESS: Autograd calculus perfectly matches numerical approximations!\n";
     } else {

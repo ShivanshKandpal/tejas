@@ -237,3 +237,56 @@ output = matmul(attn, V)             [seq_len, d_k]
 ```
 CPU and GPU implementations produce identical results within 1e-3 
 relative error, verified by hardware parity test on RTX 2060.
+
+## 8. LayerNorm: Row-wise Normalization and Fused Backward
+
+LayerNorm normalizes each row independently. For each row, it computes the mean and variance, then rescales the values so that the normalized activations have approximately zero mean and unit variance before applying the learnable scale (`gamma`) and shift (`beta`).
+
+The backward pass is where most of the complexity lies. A direct derivation produces a dense Jacobian because every output depends on every input through both the mean and the variance. Instead of explicitly constructing that Jacobian, the implementation uses the standard fused LayerNorm backward formula:
+
+$$
+\frac{\partial L}{\partial x}
+=
+\frac{\text{inv\_std}}{N}
+\left(
+N \cdot \text{grad}_{\hat{x}}
+-
+\sum \text{grad}_{\hat{x}}
+-
+\hat{x}\cdot\sum(\text{grad}_{\hat{x}}\hat{x})
+\right)
+$$
+
+The implementation caches `x_hat` and `inv_std` during the forward pass so they do not need to be recomputed during backpropagation. This reduces the backward pass to two row-wise reductions followed by one final linear pass over the row.
+
+---
+
+## 9. Gradient Checking: Choosing the Right Objective
+
+One of the first LayerNorm gradient checks I wrote used the following objective:
+
+```cpp
+sum(layernorm(x, gamma, beta))
+```
+
+with `gamma = 1` and `beta = 0`.
+
+This turned out to be a poor test. Since LayerNorm produces normalized outputs with approximately zero mean for each row, the summed output becomes nearly constant. The analytical gradient is therefore almost zero, while the numerical gradient is dominated by floating-point error, producing misleading mismatches.
+
+Changing the objective to a weighted sum of the normalized outputs produced meaningful gradients and correctly verified the backward implementation. It was a useful reminder that finite-difference gradient checking depends just as much on the chosen objective as it does on the correctness of the backward pass.
+
+---
+
+## 10. GELU: Choosing the Sigmoid Approximation
+
+The original GELU activation is defined using the Gaussian cumulative distribution function, which is relatively expensive to compute. Instead, tejas uses the simpler sigmoid approximation:
+
+$$
+
+\mathrm{GELU}(x)
+\approx
+x \cdot \sigma(1.702x)
+
+$$
+
+This approximation is inexpensive to compute, easy to differentiate, and keeps both the forward and backward implementations compact. While it is not identical to the exact GELU or the commonly used tanh approximation, it is sufficiently accurate for an educational deep learning framework while keeping the implementation straightforward.

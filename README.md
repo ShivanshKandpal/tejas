@@ -36,7 +36,7 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 * Automatic CPU/CUDA dispatch based on tensor device
 
 **Tensor operations**
-* `add`, `multiply`, `relu`, `scale`, `transpose`, `sum`, `softmax`
+* `add`, `multiply`, `relu`, `scale`, `transpose`, `sum`, `softmax`, `layernorm`
 * CUDA implementations for `add`, `multiply`, `scale`, `transpose`, `relu`, and `softmax`
 * Basic bias-style broadcasting for `add` (`[N, M] + [1, M]`)
 * Shared-memory tree-reduction kernel for row-wise softmax
@@ -45,7 +45,7 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 * Reverse-mode automatic differentiation over a dynamically built computation graph
 * Each tensor stores `shared_ptr` references to its inputs (`_prev`), keeping the graph alive for backward passes
 * `backward()` performs a topological sort and calls each node's `backward_fn` in reverse order
-* Gradients implemented for matmul, add, multiply, relu, transpose, sum, scale, and softmax
+* Gradients implemented for matmul, add, multiply, relu, gelu, transpose, sum, scale, softmax and layernorm.
 * Gradient checking via finite differences
 * CPU autograd support with forward-only CUDA execution
 
@@ -58,11 +58,13 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 
 **Neural network layers**
 * `tejas::nn::Linear`
+* `tejas::nn::Layernorm`
 * Parameter collection via `parameters()`
+* In-place device transfers via `.cpu()` / `.cuda()`
 
 **Transformer components**
 * Single-head scaled dot-product attention
-* Feed-forward network (FFN) built from `Linear` and `ReLU`
+* Feed-forward network (FFN) built from `Linear` and `GELU`
 * CPU and GPU attention implementations verified to match within 1e-3 relative error
 * Attention and FFN blocks verified using numerical gradient checking   
 
@@ -151,7 +153,8 @@ make -j4
 - [x] Reverse-mode autograd engine
 - [x] Topological graph traversal
 - [x] Gradient checking via finite differences
-- [ ] Additional ops (GELU, LayerNorm)
+- [x] GELU
+- [x] LayerNorm
 
 ### CPU Backend
 - [x] Naive matmul
@@ -174,14 +177,14 @@ make -j4
 - [x] Single-head attention forward pass (CPU + GPU verified)
 - [x] Feed-forward network (FFN)
 - [ ] Multi-head attention
-- [ ] One full transformer block (attention + LayerNorm + FFN)
+- [ ] One full transformer block (attention -> add & norm -> FFN -> add & norm) 
 - [ ] Load pretrained weights and run inference
 
 ### Neural Network Components
 - [x] XOR MLP demo
 - [x] SGD optimizer
 - [x] Linear layer abstraction
-- [ ] LayerNorm
+- [x] LayerNorm
 - [ ] Optimizer API (Adam, AdamW)
 - [ ] MLP training on real dataset
 

@@ -31,6 +31,52 @@ namespace tejas::nn {
             
             void cuda();
             void cpu();
-        };
+    };
+
+    class SingleHeadAttention {
+        public: 
+            Linear q_proj;
+            Linear v_proj;
+            Linear k_proj;
+            Linear o_proj;
+            float d_k;
+            
+            SingleHeadAttention(int d_model, int d_k);
+
+            TensorPtr forward(const TensorPtr& x);
+            std::vector<TensorPtr> parameters() const;
+            void cpu();
+            void cuda();
+    };
+
+    class FeedForward {
+        public:
+            Linear w1;
+            Linear w2;
+
+            FeedForward(int d_model, int d_ff);
+            
+            TensorPtr forward(const TensorPtr& x);
+
+            std::vector<TensorPtr> parameters() const;
+            void cpu();
+            void cuda();
+    };
+
+    class TransformerBlock {
+        public: 
+            LayerNorm ln1;
+            SingleHeadAttention attn;
+            LayerNorm ln2;
+            FeedForward ffn;
+
+            TransformerBlock(int d_model, int d_k, int d_ff);
+
+            TensorPtr forward(const TensorPtr& x);
+
+            std::vector<TensorPtr> parameters() const;
+            void cpu();
+            void cuda();
+    };
 }
 

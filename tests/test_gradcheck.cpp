@@ -228,6 +228,26 @@ int main() {
         assert(ok);
     }
 
+    // === full transformer block check === 
+    {
+        int block_seq_len = 4;
+        int block_d_model = 8;
+        int block_d_k = 4;
+        int block_d_ff = 16;
+
+        tejas::nn::TransformerBlock block(block_d_model, block_d_k, block_d_ff);
+        TensorPtr input = std::make_shared<Tensor>(std::vector<int> {block_seq_len, block_d_model});
+        input->randomize();
+        input->requires_grad = true;
+
+        auto block_forward = [&](const TensorPtr& x){
+            return sum(block.forward(x));
+        };
+
+        bool block_pass = gradient_check(input, block_forward);
+        std::cout << (block_pass ? "[PASS]" : "[FAIL]") << " Full Transformer Block\n";
+    }
+
     if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass && broad_pass && ffn_pass) {
         std::cout << "\nSUCCESS: Autograd calculus perfectly matches numerical approximations!\n";
     } else {

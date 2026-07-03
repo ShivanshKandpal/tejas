@@ -31,13 +31,16 @@ jobs:
     - name: Run CPU Test Suite
       run: |
         ./build/test_tensor
-    
-    - name: Run XOR Integration Test
-      run: |
-        ./build/xor
 
     - name: Run Gradient Check
       run: ./build/test_gradcheck
 
+    - name: Run XOR Integration Test
+      run: |
+        ./build/xor
+        
     - name: Run Attention Forward Pass
       run: ./build/attention
+
+    - name: Run Transformer Block Example  
+      run: ./build/transformer_block

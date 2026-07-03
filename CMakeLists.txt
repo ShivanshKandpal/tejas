@@ -48,6 +48,9 @@ target_link_libraries(test_gradcheck tejas_lib)
 
 add_executable(attention examples/attention.cpp)
 target_link_libraries(attention tejas_lib)
+
+add_executable(transformer_block examples/transformer_block.cpp)
+target_link_libraries(transformer_block tejas_lib)
 # ==========================================
 # Hardware-Specific Executables (Skipped in CI)
 # ==========================================

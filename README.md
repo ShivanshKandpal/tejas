@@ -36,9 +36,9 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 * Automatic CPU/CUDA dispatch based on tensor device
 
 **Tensor operations**
-* `add`, `multiply`, `relu`, `scale`, `transpose`, `sum`, `softmax`, `layernorm`
+* `add`, `multiply`, `relu`, `gelu`, `scale`, `transpose`, `sum`, `softmax`, `layernorm`
 * CUDA implementations for `add`, `multiply`, `scale`, `transpose`, `relu`, and `softmax`
-* Basic bias-style broadcasting for `add` (`[N, M] + [1, M]`)
+* Basic bias-style broadcasting for `add` (`[N, M] + [M]` and `[N, M] + [1, M]`)
 * Shared-memory tree-reduction kernel for row-wise softmax
 
 **Autograd engine**
@@ -46,7 +46,7 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 * Each tensor stores `shared_ptr` references to its inputs (`_prev`), keeping the graph alive for backward passes
 * `backward()` performs a topological sort and calls each node's `backward_fn` in reverse order
 * Gradients implemented for matmul, add, multiply, relu, gelu, transpose, sum, scale, softmax and layernorm.
-* Gradient checking via finite differences
+* Finite-difference gradient checking for every differentiable operation
 * CPU autograd support with forward-only CUDA execution
 
 **Training demos**
@@ -58,15 +58,20 @@ Along the way I hit the bugs that explain the design decisions: the dangling ref
 
 **Neural network layers**
 * `tejas::nn::Linear`
-* `tejas::nn::Layernorm`
+* `tejas::nn::LayerNorm`
+* `tejas::nn::SingleHeadAttention`
+* `tejas::nn::FeedForward`
+* `tejas::nn::TransformerBlock` (Pre-LayerNorm)
 * Parameter collection via `parameters()`
-* In-place device transfers via `.cpu()` / `.cuda()`
+* In-place device transfers via `.cpu()` / `.cuda()`    
 
-**Transformer components**
+**Transformer Components**
 * Single-head scaled dot-product attention
-* Feed-forward network (FFN) built from `Linear` and `GELU`
+* Output projection (`W_o`) mapping attention output back to `d_model`
+* Feed-forward network (Linear → GELU → Linear)
+* Pre-LayerNorm Transformer block with residual connections
 * CPU and GPU attention implementations verified to match within 1e-3 relative error
-* Attention and FFN blocks verified using numerical gradient checking   
+* Gradient checking for attention, feed-forward network, LayerNorm, and the complete Transformer block
 
 ## Benchmarks
 
@@ -134,6 +139,8 @@ make -j4
 ./build/test_tensor
 ./build/xor
 ./build/test_gradcheck
+./build/attention
+./build/transformer_block
 ./build/test_parity    # GPU only
 ./build/test_dispatch  # GPU only
 ```
@@ -176,8 +183,8 @@ make -j4
 ### Transformer Components
 - [x] Single-head attention forward pass (CPU + GPU verified)
 - [x] Feed-forward network (FFN)
+- [x] Pre-LayerNorm Transformer block
 - [ ] Multi-head attention
-- [ ] One full transformer block (attention -> add & norm -> FFN -> add & norm) 
 - [ ] Load pretrained weights and run inference
 
 ### Neural Network Components

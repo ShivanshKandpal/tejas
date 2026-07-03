@@ -290,3 +290,104 @@ x \cdot \sigma(1.702x)
 $$
 
 This approximation is inexpensive to compute, easy to differentiate, and keeps both the forward and backward implementations compact. While it is not identical to the exact GELU or the commonly used tanh approximation, it is sufficiently accurate for an educational deep learning framework while keeping the implementation straightforward.
+
+## 11. Building the First Transformer Block
+
+The transformer block itself did not require any new tensor operations. Instead, it was built by composing the modules that already existed: `LayerNorm`, `SingleHeadAttention`, `FeedForward`, and residual connections. Most of the work ended up being debugging how those pieces fit together correctly.
+
+### Bug 1: Attention Output Shape
+
+My first implementation of `SingleHeadAttention` returned the attention output directly:
+
+```text
+Attention(Q, K, V) -> [seq_len, d_k]
+```
+
+This worked as long as `d_k == d_model`, but immediately broke the residual connection when I tried different dimensions:
+
+```cpp
+add(x, attention_out);
+```
+
+since
+
+```text
+x              : [seq_len, d_model]
+attention_out  : [seq_len, d_k]
+```
+
+The fix was to add an output projection:
+
+```text
+output = W_o(Attention(Q, K, V))
+
+W_o : [d_k, d_model]
+```
+
+which maps the attention output back to the model dimension. This is the same role played by the `W^O` projection in the original Transformer's multi-head attention block. With the output projection in place, the residual connection works regardless of the chosen head dimension.
+
+### Bug 2: Residual Connection
+
+I also made a subtle mistake in the second residual connection. My initial implementation was
+
+```cpp
+add(x, ffn_out);
+```
+
+This is incorrect because the feed-forward network should operate on the output of the attention block, not on the original input.
+
+The correct implementation is
+
+```cpp
+out1 = add(x, attn_out);
+out2 = add(out1, ffn_out);
+```
+
+The bug was easy to miss because the code compiled and produced outputs, but the computation graph no longer matched the Transformer architecture.
+
+### Gradient Checking the Entire Block
+
+After wiring all of the modules together, I verified the complete transformer block using finite-difference gradient checking.
+
+Rather than checking attention, LayerNorm, and the feed-forward network independently, gradients were propagated through the entire computation graph:
+
+```text
+LayerNorm
+    ↓
+Single-Head Attention
+    ↓
+Residual
+    ↓
+LayerNorm
+    ↓
+Feed-Forward Network
+    ↓
+Residual
+```
+
+The gradient check is noticeably slower than checking individual operators because each numerical gradient requires additional forward evaluations, but it provides strong confidence that all of the modules compose correctly into a single computation graph.
+
+### Parameter Count
+
+For the test configuration
+
+```text
+d_model = 8
+d_k     = 4
+d_ff    = 32
+```
+
+the transformer block contains:
+
+| Module | Parameters |
+|--------|-----------:|
+| Q projection | 36 |
+| K projection | 36 |
+| V projection | 36 |
+| Output projection | 40 |
+| LayerNorm 1 | 16 |
+| FeedForward | 552 |
+| LayerNorm 2 | 16 |
+| **Total** | **732** |
+
+Breaking the parameter count down by module gave me a better intuition for where the model capacity actually comes from. Even in this tiny example, the feed-forward network contains far more parameters than the attention mechanism itself.

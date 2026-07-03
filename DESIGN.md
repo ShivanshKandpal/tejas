@@ -84,3 +84,19 @@ The backward implementation follows the fused LayerNorm formulation used by mode
 ## 8. Why make Layer Abstractions (Neural Network Modules)
 
 Primitive tensor operations (`matmul`, `add`, `layernorm`, etc.) are responsible for computation and autograd, while higher-level modules such as `Linear` and `LayerNorm` simply own trainable parameters and compose those operations. This separation keeps tensor operations reusable while providing an interface familiar to users of modern deep learning frameworks. Modules also expose a common `parameters()` interface and support in-place device transfers through `.cpu()` and `.cuda()`, allowing optimizers and training loops to operate on layers without knowledge of their internal implementation.
+
+## 9. Why Attention Has an Output Projection
+
+Single-head attention does not return the final block output directly. After attention, the tensor has shape `[seq_len, d_k]`, but the residual path expects `[seq_len, d_model]`. The output projection `o_proj` maps the attention result back to `d_model`, which makes the residual connection work cleanly and also allows `d_k` to differ from `d_model`. This matches the original transformer design and keeps the attention module flexible.
+
+---
+
+## 10. Why FeedForward Is Its Own Module
+
+The feed-forward network is a separate module instead of being baked into `TransformerBlock` directly. That keeps the block small and consistent with the rest of the codebase, where reusable pieces own their parameters and expose a `forward()` method. It also makes the FFN easy to evolve independently, for example if dropout, gated variants, or a different activation are added later.
+
+---
+
+## 11. Why Pre-Norm Instead of Post-Norm
+
+The transformer block uses the pre-norm layout, where LayerNorm happens before attention and before the feed-forward network. That keeps the residual stream untouched, which usually makes optimization easier and gradient flow cleaner. It also matches the style used by a lot of modern transformer models, including GPT-style architectures.

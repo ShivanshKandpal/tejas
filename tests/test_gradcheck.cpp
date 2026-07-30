@@ -248,13 +248,53 @@ int main() {
         std::cout << (block_pass ? "[PASS]" : "[FAIL]") << " Full Transformer Block\n";
     }
 
+    {
+        // === 11. Fused Cross-Entropy Check ===
+        int ce_seq = 3;
+        int ce_vocab = 5;
+        
+        TensorPtr logits = std::make_shared<Tensor>(std::vector<int>{ce_seq, ce_vocab});
+        logits->randomize(1.0f);
+        logits->requires_grad = true;
+        
+    
+        std::vector<int> targets = {1, 4, 0};
+
+        auto ce_forward = [&](TensorPtr inp) {
+            return cross_entropy_loss(inp, targets); 
+        };
+
+        bool ce_pass = gradient_check(logits, ce_forward);
+        std::cout << (ce_pass ? "[PASS]" : "[FAIL]") << " Fused Cross-Entropy\n";
+    }
+ 
+   
+    {
+        // === 12. Embedding Check ===
+        int emb_vocab = 10;
+        int emb_dim = 4;
+        tejas::nn::Embedding emb(emb_vocab, emb_dim);
+
+        std::vector<int> emb_indices = {2, 5, 2};
+        
+        auto emb_forward = [&](TensorPtr w) {
+            auto old_w = emb.weight;
+            emb.weight = w;
+            TensorPtr out = emb.forward(emb_indices);
+            emb.weight = old_w;
+            return sum(out);
+        };
+
+        bool emb_pass = gradient_check(emb.weight, emb_forward);
+        std::cout << (emb_pass ? "[PASS]" : "[FAIL]") << " Embedding Layer\n";
+
+    }
     if(relu_pass && add_pass && mul_pass && matmul_pass && softmax_pass && transpose_pass && attn_pass && broad_pass && ffn_pass) {
         std::cout << "\nSUCCESS: Autograd calculus perfectly matches numerical approximations!\n";
     } else {
         std::cout << "\nFAILURE: Autograd engine contains calculus errors.\n";
         assert(false);
     }
-    
     return 0;
 
 }

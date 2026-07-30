@@ -76,6 +76,14 @@ namespace tejas::nn {
             TensorPtr scores = matmul(Q, transpose(K));
             scores = scale(scores, 1.0f / std::sqrt(d_k));
 
+            // --- CAUSAL MASK (No looking into the future) ---
+            int seq_len = scores->shape[0]; 
+            for (int i = 0; i < seq_len; i++) {
+                for (int j = i + 1; j < seq_len; j++) {
+                    scores->data[i * seq_len + j] = -1e9f; 
+                }
+            }
+
             TensorPtr attn = softmax(scores);
 
             return o_proj.forward(matmul(attn, V));
@@ -160,5 +168,59 @@ namespace tejas::nn {
     void TransformerBlock::cuda() { ln1.cuda(); attn.cuda(); ln2.cuda(); ffn.cuda(); }
     void TransformerBlock::cpu()  { ln1.cpu();  attn.cpu();  ln2.cpu();  ffn.cpu(); }
 
+}
+
+namespace tejas::nn {
+    Embedding::Embedding(int vocab_size, int d_model) {
+        weight = std::make_shared<Tensor>(std::vector<int>{vocab_size, d_model});
+        weight->randomize();
+        weight->requires_grad = true;
+    }
+
+    TensorPtr Embedding::forward(const std::vector<int>& indices) {
+        int seq_len = indices.size();
+        int d_model = weight->shape[1];
+
+        TensorPtr out = std::make_shared<Tensor>(std::vector<int>{seq_len, d_model});
+
+        for(int i = 0;i < seq_len; i++) {
+            int idx = indices[i];
+            for(int j = 0; j < d_model; j++) {
+                out->data[i * d_model + j] = weight->data[idx * d_model + j];
+            }
+        }
+
+        out->_prev = {weight};
+
+        if(weight->requires_grad) {
+            out->requires_grad = true;
+            out->backward_fn = [this, indices, out, seq_len, d_model]() {
+                if(this->weight->grad == nullptr) {
+                    this->weight->grad = std::make_shared<Tensor>(this->weight->shape);    
+                }
+
+                for(int i = 0;i < seq_len; i++) {
+                    int idx = indices[i];
+                    for(int j = 0; j < d_model; j++) {
+                        this->weight->grad->data[idx * d_model + j] += out->grad->data[i * d_model + j];
+                    }
+                }
+            };
+        }
+
+        return out;
+    }
+    std::vector<TensorPtr> Embedding::parameters() const {
+        return {weight};
+    }
+
+    void Embedding::cuda() {
+
+    };
+
+    void Embedding::cpu() {
+
+    };
+    
 }
 

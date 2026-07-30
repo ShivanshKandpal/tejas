@@ -33,6 +33,19 @@ namespace tejas::nn {
             void cpu();
     };
 
+    class Embedding {
+        public:
+            TensorPtr weight;
+            
+            Embedding(int vocab_size, int d_model);
+
+            TensorPtr forward(const std::vector<int>& indices);
+
+            std::vector<TensorPtr> parameters() const;
+            void cpu();
+            void cuda();
+    };
+
     class SingleHeadAttention {
         public: 
             Linear q_proj;

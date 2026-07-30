@@ -709,3 +709,71 @@ TensorPtr gelu(const TensorPtr& a) {
     }
     return result;
 }
+
+TensorPtr cross_entropy_loss(const TensorPtr& logits, const std::vector<int>& target_indices) {
+    int batch_size = logits->shape[0];
+    int vocab_size = logits->shape[1];
+
+    TensorPtr loss = std::make_shared<Tensor>(std::vector<int> {1});
+
+    std::shared_ptr<std::vector<float>> probs = std::make_shared<std::vector<float>> (logits->numel());
+
+    float total_loss = 0.0f;
+
+    for(int i = 0; i < batch_size; i++) {
+        float max_val = -1e9f;
+        for(int j = 0;j < vocab_size; j++) {
+            max_val = std::max(max_val, logits->data[i * vocab_size + j]);
+        }
+
+        float sum_exp = 0.0f;
+        for(int j = 0; j < vocab_size; j++) {
+            float e = std::exp(logits->data[i * vocab_size + j] - max_val);
+            (*probs)[i * vocab_size + j] = e;
+            sum_exp += e;
+        }
+
+        int target_idx = target_indices[i];
+        if (target_idx < 0 || target_idx >= vocab_size)
+            throw std::runtime_error("Target index out of range.");
+        
+        float target_prob = 0.0f;
+        for(int j = 0; j < vocab_size; j++) {
+            (*probs)[i * vocab_size + j] /= sum_exp;
+            if(j == target_idx) {
+                target_prob = (*probs)[i * vocab_size + j];
+            }
+        }
+
+        total_loss += -std::log(target_prob + 1e-7);
+    }
+
+    loss->data[0] = total_loss / batch_size;
+    loss->_prev = {logits};
+
+    if(logits->requires_grad) {
+        loss->requires_grad = true;
+        loss->backward_fn = [logits, probs, target_indices, batch_size, vocab_size, loss]() {
+            if(logits->grad == nullptr) logits->grad = std::make_shared<Tensor>(logits->shape);
+
+            float upstream_grad = loss->grad->data[0];
+
+            for(int i = 0; i < batch_size; i++) {
+                int target_idx = target_indices[i];
+
+                for(int j = 0; j < vocab_size; j++) {
+                    int flat_idx = i * vocab_size + j;
+                    float local_grad = (*probs)[flat_idx];
+                    
+                    if(j == target_idx) {
+                        local_grad -= 1.0f;
+                    }
+
+                    logits->grad->data[flat_idx] += (local_grad / batch_size) * upstream_grad;
+                }
+
+            }
+        };
+    }
+    return loss;
+}

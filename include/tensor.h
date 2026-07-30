@@ -67,3 +67,4 @@ void sgd_step(const TensorPtr& param, float lr);
 TensorPtr layernorm(const TensorPtr& x, const TensorPtr& gamma, const TensorPtr& beta, float eps = 1e-5f);
 TensorPtr gelu_raw(const TensorPtr& a);
 TensorPtr gelu(const TensorPtr &a);
+TensorPtr cross_entropy_loss(const TensorPtr& logits, const std::vector<int>& target_indices);

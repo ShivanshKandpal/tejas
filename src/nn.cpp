@@ -194,15 +194,16 @@ namespace tejas::nn {
 
         if(weight->requires_grad) {
             out->requires_grad = true;
-            out->backward_fn = [this, indices, out, seq_len, d_model]() {
-                if(this->weight->grad == nullptr) {
-                    this->weight->grad = std::make_shared<Tensor>(this->weight->shape);    
+            auto w = weight;
+            out->backward_fn = [w , indices, out, seq_len, d_model]() {
+                if(w->grad == nullptr) {
+                    w->grad = std::make_shared<Tensor>(w->shape);    
                 }
 
                 for(int i = 0;i < seq_len; i++) {
                     int idx = indices[i];
                     for(int j = 0; j < d_model; j++) {
-                        this->weight->grad->data[idx * d_model + j] += out->grad->data[i * d_model + j];
+                        w->grad->data[idx * d_model + j] += out->grad->data[i * d_model + j];
                     }
                 }
             };
@@ -215,11 +216,11 @@ namespace tejas::nn {
     }
 
     void Embedding::cuda() {
-
+        weight = weight->cuda();
     };
 
     void Embedding::cpu() {
-
+        weight = weight->cpu(); 
     };
     
 }

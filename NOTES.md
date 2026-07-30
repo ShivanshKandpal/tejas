@@ -244,18 +244,7 @@ LayerNorm normalizes each row independently. For each row, it computes the mean 
 
 The backward pass is where most of the complexity lies. A direct derivation produces a dense Jacobian because every output depends on every input through both the mean and the variance. Instead of explicitly constructing that Jacobian, the implementation uses the standard fused LayerNorm backward formula:
 
-$$
-\frac{\partial L}{\partial x}
-=
-\frac{\text{inv\_std}}{N}
-\left(
-N \cdot \text{grad}_{\hat{x}}
--
-\sum \text{grad}_{\hat{x}}
--
-\hat{x}\cdot\sum(\text{grad}_{\hat{x}}\hat{x})
-\right)
-$$
+$$ \frac{\partial L}{\partial x} = \frac{\text{inv\_std}}{N} \left( N \cdot \text{grad}_{\hat{x}} - \sum \text{grad}_{\hat{x}} - \hat{x} \cdot \sum(\text{grad}_{\hat{x}}\hat{x}) \right) $$
 
 The implementation caches `x_hat` and `inv_std` during the forward pass so they do not need to be recomputed during backpropagation. This reduces the backward pass to two row-wise reductions followed by one final linear pass over the row.
 
